@@ -6,8 +6,8 @@
 // @match        https://gcaba.urbetrack.com/HigieneUrbana/Soporte/Default.aspx*
 // @run-at       document-idle
 // @grant        none
-// @updateURL    https://raw.githubusercontent.com/USUARIO/REPO/main/urbetrack_carga.user.js
-// @downloadURL  https://raw.githubusercontent.com/USUARIO/REPO/main/urbetrack_carga.user.js
+// @updateURL    https://raw.githubusercontent.com/search00-sketch/urbetrack-carga/main/urbetrack_carga.user.js
+// @downloadURL  https://raw.githubusercontent.com/search00-sketch/urbetrack-carga/main/urbetrack_carga.user.js
 // ==/UserScript==
 
 /*
