@@ -228,6 +228,9 @@
   td.num{ font-family:'IBM Plex Mono',monospace; white-space:nowrap; }
   td input[type="text"]{ padding:4px 7px; font-size:12px; min-width:120px; }
   td select{ padding:4px 6px; font-size:12px; }
+  td select[data-f="grupo"]{ min-width:175px; }
+  td select[data-f="tipoServicio"]{ min-width:170px; }
+  td select[data-f="detalleServicio"]{ min-width:190px; }
   .pill{
     display:inline-flex; align-items:center; padding:2px 8px; border-radius:100px;
     font-size:10.5px; font-weight:600; letter-spacing:.02em; white-space:nowrap; border:1px solid transparent;
@@ -971,11 +974,18 @@
         const re = safeRegex(kw, "i");
         if(re && re.test(caption)) return val;
       }
-      return profile.solicitanteDefault || "OPERATIVO";
+      return chatKind === "PATRULLA" ? "PATRULLA" : (profile.solicitanteDefault || "OPERATIVO");
     }
     function extractNumeroOrden(caption){
       const m = caption.match(NUM_ORDEN_RE);
       return m ? m[0] : null;
+    }
+
+    // ¿Es el chat de una patrulla? El título del grupo ("PATRULLA 3 TN") aparece como remitente de los primeros mensajes del sistema.
+    let chatKind = null, patrolName = "";
+    for(const m0 of messages.slice(0,6)){
+      const hit = ((m0.sender||"") + " " + (m0.lines||[]).join(" ")).match(/PATRULLA\s*\d*\s*(?:TM|TT|TN)?/i);
+      if(hit){ chatKind = "PATRULLA"; patrolName = hit[0].trim().toUpperCase(); break; }
     }
 
     let context = null;
@@ -1005,7 +1015,7 @@
       if(!am) continue;
 
       if(context === null){
-        context = { kind: profile.defaultKind, label: `${profile.defaultKind} ${msg.date} (sin aviso previo)` };
+        context = { kind: profile.defaultKind, label: chatKind === "PATRULLA" ? (patrolName || "PATRULLA") + " " + msg.date : `${profile.defaultKind} ${msg.date} (sin aviso previo)` };
       }
       const fnm = fullText.match(FILENAME_RE);
       const filename = iosAtt !== null ? iosAtt : (fnm ? fnm[0] : null);
@@ -1106,6 +1116,32 @@
         }
       }
 
+      // Patrullas: PUNTO CRONICO / HOJA DE RUTA. Si dice "sin incidencias" -> tipo RELEVAMIENTO, detalle SIN INCIDENCIAS.
+      let punto = "", comentario, usarComentario;
+      const rawAddr = addr;
+      const headRe = /^(punto\s*cr[oó]nico|hoja\s*de\s*ruta|relevamiento)\b/i;
+      const hdr = caption.split("\n").map(x=>x.trim()).find(x=>headRe.test(x));
+      const hdrKind = hdr ? hdr.match(headRe)[1].toLowerCase().replace(/\s+/g," ") : "";
+      if(chatKind === "PATRULLA" && (/^punto/.test(hdrKind) || /^hoja/.test(hdrKind))){
+        grupo = /^punto/.test(hdrKind) ? "PUNTO CRONICO" : "HOJA DE RUTA";
+        if(/sin\s+incid/i.test(caption)){ tipoServicio = "RELEVAMIENTO"; detalleServicio = "SIN INCIDENCIAS"; }
+        else { tipoServicio = ""; detalleServicio = ""; }
+      }
+      if(chatKind === "PATRULLA" && hdr){
+        // aclaraciones = líneas que no son encabezado, ubicación ni "sin incidencias"
+        const lns = caption.split("\n").map(x=>x.trim()).filter(Boolean);
+        const ai = lns.indexOf(rawAddr);
+        const extra = [];
+        lns.forEach((l,i)=>{
+          if(headRe.test(l) || l === rawAddr || /^sin\s+incid\w*\.?$/i.test(l)) return;
+          if(/^punto/.test(hdrKind) && ai > 0 && i < ai) { punto = (punto ? punto + " " : "") + l; return; }
+          extra.push(l);
+        });
+        if(/^punto/.test(hdrKind) && !punto){ punto = hdr.replace(headRe,"").replace(/^[\s:.-]+/,"").trim(); }
+        comentario = extra.join(" | ");
+        usarComentario = "SI";
+      }
+
       addr = canonicalizeAddress(addr, profile);
       if(!addr || looksLikeJunk(addr)){
         skipped.push({date: msg.date, time: msg.time, file: filename, caption, reason:"dirección inválida"});
@@ -1117,7 +1153,7 @@
         file: filename, caption, grupo, tipoServicio, detalleServicio,
         codigo: null, precinto: null, numeroOrdenSap: extractNumeroOrden(caption),
         direccion: addr, solicitante: computeSolicitante(caption), turno, contexto: context.label,
-        sender, ts, datetime, files: filename ? [filename] : []
+        sender, ts, datetime, files: filename ? [filename] : [], punto, comentario, usarComentario
       }));
     }
 
@@ -1326,14 +1362,14 @@
       detalle_servicio: r.detalleServicio || null,
       codigo: r.codigo, precinto: r.precinto, numero_orden_sap: r.numeroOrdenSap || null,
       direccion: r.direccion, solicitante: r.solicitante, turno: r.turno, contexto: r.contexto,
-      files: r.files || (r.file ? [r.file] : []), datetime: r.datetime || null, sender: r.sender || null
+      files: r.files || (r.file ? [r.file] : []), datetime: r.datetime || null, sender: r.sender || null, punto: r.punto || null, comentario: r.comentario === undefined ? undefined : r.comentario, usar_comentario: r.usarComentario || undefined
     }));
     await downloadText(JSON.stringify(out, null, 2), `records-${slug(getActiveProfile().name)}-${todayStr()}.json`, "application/json");
   });
 
   $("btnExportCsv").addEventListener("click", async ()=>{
     if(!rows.length){ toast("No hay filas para exportar"); return; }
-    const cols = ["categoria","date","time","datetime","weekday","files","caption","grupo","tipoServicio","detalleServicio","codigo","precinto","numeroOrdenSap","direccion","solicitante","turno","contexto","estado"];
+    const cols = ["categoria","date","time","datetime","weekday","files","caption","grupo","tipoServicio","detalleServicio","codigo","precinto","numeroOrdenSap","direccion","solicitante","turno","contexto","punto","comentario","usarComentario","estado"];
     const esc = (v)=> `"${String(v??"").replace(/"/g,'""')}"`;
     const lines = [cols.join(",")].concat(rows.map(r=> cols.map(c=>esc(c==="files" ? (r.files||[]).join("|") : r[c])).join(",")));
     await downloadText(lines.join("\n"), `records-${slug(getActiveProfile().name)}-${todayStr()}.csv`, "text/csv");
@@ -1342,7 +1378,7 @@
   $("btnExportXlsx").addEventListener("click", async ()=>{
     if(!rows.length){ toast("No hay filas para exportar"); return; }
     if(typeof ExcelJS === "undefined"){ toast("No se cargó la librería de Excel. Probá con CSV."); return; }
-    const cols = ["categoria","date","time","datetime","weekday","files","caption","grupo","tipoServicio","detalleServicio","codigo","precinto","numeroOrdenSap","direccion","solicitante","turno","contexto","estado"];
+    const cols = ["categoria","date","time","datetime","weekday","files","caption","grupo","tipoServicio","detalleServicio","codigo","precinto","numeroOrdenSap","direccion","solicitante","turno","contexto","punto","comentario","usarComentario","estado"];
     const L = n => { let s=""; n++; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26);} return s; };
     const col = c => L(cols.indexOf(c));
     const wb = new ExcelJS.Workbook();
