@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.5.1
+- Link "Abrir conversor" en el panel.
+
+## 0.5.0
+- Acepta **Excel (.xlsx)** además de JSON/CSV (lee la primera hoja; mismas columnas que exporta el conversor).
+- Nuevo `index.html`: conversor publicado con GitHub Pages, con descarga directa de Excel, CSV y JSON.
+
+## 0.4.0
+- Botón **Pegar datos…**: se pega el JSON/CSV copiado del conversor, sin depender de descargar el archivo (útil con otras cuentas).
+
 ## 0.3.4
 - Tras Guardar espera hasta 30 s a que la página se recargue; si hay un guardado en curso y falla, frena la corrida sin limpiar el formulario.
 

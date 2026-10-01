@@ -13,8 +13,8 @@ exportadas de un chat de WhatsApp (ya convertidas a JSON/CSV), con sus fotos.
 Las actualizaciones llegan solas: Tampermonkey revisa la dirección de `@updateURL` y compara el `@version`.
 
 ## Uso
-1. Convertir el chat con el conversor *Operativo Callejero* y descargar el JSON (o CSV).
-2. En el panel: **1 · Cargar JSON/CSV** y **2 · Carpeta de fotos** (la carpeta descomprimida del chat).
+1. Convertir el chat con el conversor *Operativo Callejero* y descargar el **Excel (.xlsx)**, CSV o JSON. Conversor online: https://search00-sketch.github.io/urbetrack-carga/ (descarga directa, funciona con cualquier cuenta).
+2. En el panel: **1 · Cargar JSON/CSV/Excel** (o **Pegar datos…** si copiaste el contenido desde el conversor) y **2 · Carpeta de fotos** (la carpeta descomprimida del chat).
 3. Elegir el **Solicitante** (POLIGONO / PATRULLA / OPERATIVO / SEGUN FILA).
 4. Probar primero con **Simulación** tildada y **Pausar en cada fila**: completa el formulario sin guardar.
 5. Destildar **Simulación** para guardar de verdad. Las filas guardadas se destildan solas.
@@ -39,8 +39,8 @@ y continúa solo con las filas que faltan.
 1. Editar `urbetrack_carga.user.js` y **subir `@version`** (si no sube, Tampermonkey no actualiza).
 2. Anotar el cambio en `CHANGELOG.md`, `git commit` y `git push` a `main`.
 
-## Reemplazar USUARIO/REPO
-Las líneas `@updateURL` y `@downloadURL` del encabezado apuntan a `USUARIO/REPO`; reemplazarlas por los
+## Reemplazar search00-sketch/urbetrack-carga
+Las líneas `@updateURL` y `@downloadURL` del encabezado apuntan a `search00-sketch/urbetrack-carga`; reemplazarlas por los
 reales antes del primer push:
 
-    sed -i 's#USUARIO/REPO#mi-usuario/mi-repo#g' urbetrack_carga.user.js
+    sed -i 's#search00-sketch/urbetrack-carga#mi-usuario/mi-repo#g' urbetrack_carga.user.js
