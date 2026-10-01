@@ -1,695 +1,1377 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>DGFIS · Devoluciones de mercadería</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operativo Callejero</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
   :root{
-    --bg-base:#181b1c;
-    --bg-panel:#232728;
-    --bg-panel-2:#2b3032;
-    --steel-line:#3c4245;
-    --steel-line-light:#4d5457;
-    --yellow:#f2b705;
-    --yellow-dim:#8a6c1f;
-    --rust:#c1440e;
-    --green:#4c8a52;
-    --red:#a6291d;
-    --text-hi:#f0eee8;
-    --text-mid:#b7bdbf;
-    --text-dim:#7d8688;
-    --radius:2px;
-    --shadow-plate: inset 0 0 0 1px rgba(255,255,255,0.03), 0 6px 16px rgba(0,0,0,0.35);
+    --bg:#f4f6f3;
+    --surface:#ffffff;
+    --surface-2:#eaede6;
+    --surface-3:#dfe3da;
+    --border:#d3d8cd;
+    --text:#1c231f;
+    --text-muted:#5c6b5e;
+    --text-faint:#8a9689;
+    --accent:#0f6e5c;
+    --accent-hover:#0b5646;
+    --accent-soft:#e2f1ec;
+    --accent-contrast:#ffffff;
+    --ok-bg:#e0f3e2;
+    --ok-text:#1e6b34;
+    --ok-border:#b7ddb9;
+    --warn-bg:#fdf1d6;
+    --warn-text:#8a5a09;
+    --warn-border:#f0d693;
+    --danger-bg:#fbe4e1;
+    --danger-text:#a3352a;
+    --danger-border:#f0bcb4;
+    --shadow: 0 1px 2px rgba(20,30,20,0.04), 0 4px 16px rgba(20,30,20,0.06);
+    --radius: 10px;
   }
-  *{box-sizing:border-box;}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#151b16;
+      --surface:#1c231e;
+      --surface-2:#242c25;
+      --surface-3:#2c352d;
+      --border:#374035;
+      --text:#e7ede6;
+      --text-muted:#a3b0a1;
+      --text-faint:#77857a;
+      --accent:#4fbf9f;
+      --accent-hover:#6fd0b3;
+      --accent-soft:#213730;
+      --accent-contrast:#0c1512;
+      --ok-bg:#1c3823;
+      --ok-text:#8fd89f;
+      --ok-border:#2e5738;
+      --warn-bg:#3a3016;
+      --warn-text:#f0c975;
+      --warn-border:#5c4c22;
+      --danger-bg:#3a1f1c;
+      --danger-text:#f0a196;
+      --danger-border:#5c332c;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#151b16;
+    --surface:#1c231e;
+    --surface-2:#242c25;
+    --surface-3:#2c352d;
+    --border:#374035;
+    --text:#e7ede6;
+    --text-muted:#a3b0a1;
+    --text-faint:#77857a;
+    --accent:#4fbf9f;
+    --accent-hover:#6fd0b3;
+    --accent-soft:#213730;
+    --accent-contrast:#0c1512;
+    --ok-bg:#1c3823;
+    --ok-text:#8fd89f;
+    --ok-border:#2e5738;
+    --warn-bg:#3a3016;
+    --warn-text:#f0c975;
+    --warn-border:#5c4c22;
+    --danger-bg:#3a1f1c;
+    --danger-text:#f0a196;
+    --danger-border:#5c332c;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.35);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
   body{
-    margin:0;
-    background:
-      repeating-linear-gradient(135deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 2px, transparent 2px, transparent 6px),
-      var(--bg-base);
-    color:var(--text-hi);
-    font-family:'IBM Plex Mono', monospace;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
     min-height:100vh;
   }
-  h1,h2,h3,.label-industrial{
-    font-family:'Oswald', sans-serif;
-    text-transform:uppercase;
-    letter-spacing:0.06em;
-  }
-  ::selection{ background:var(--yellow); color:#181b1c; }
+  ::selection{ background:var(--accent-soft); }
 
-  /* ---------- RIVETS / PLATE ---------- */
-  .plate{
-    position:relative;
-    background:var(--bg-panel);
-    border:1px solid var(--steel-line);
-    box-shadow:var(--shadow-plate);
-    border-radius:var(--radius);
-  }
-  .plate::before,.plate::after{
-    content:"";
-    position:absolute;
-    width:6px;height:6px;
-    border-radius:50%;
-    background:radial-gradient(circle at 35% 35%, #6b7275, #24282a 70%);
-    box-shadow:0 1px 1px rgba(0,0,0,0.6);
-    top:8px;
-  }
-  .plate::before{ left:8px; }
-  .plate::after{ right:8px; }
-  .plate-rivet-bottom::before,.plate-rivet-bottom::after{
-    content:"";
-    position:absolute;
-    width:6px;height:6px;
-    border-radius:50%;
-    background:radial-gradient(circle at 35% 35%, #6b7275, #24282a 70%);
-    box-shadow:0 1px 1px rgba(0,0,0,0.6);
-    bottom:8px;
-  }
-  .plate-rivet-bottom::before{ left:8px; }
-  .plate-rivet-bottom::after{ right:8px; }
+  .mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 
-  /* ---------- LOGIN ---------- */
-  #pantalla-login{
-    min-height:100vh;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:24px;
+  a{ color:var(--accent); }
+
+  .shell{ max-width:1320px; margin:0 auto; padding:28px 28px 80px; }
+
+  header.top{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:24px; margin-bottom:24px; flex-wrap:wrap;
   }
-  .login-card{
+  header.top .titling{ display:flex; flex-direction:column; gap:4px; }
+  .eyebrow{
+    text-transform:uppercase; letter-spacing:.09em; font-size:11.5px;
+    font-weight:600; color:var(--accent);
+  }
+  h1{
+    margin:0; font-size:26px; font-weight:700; letter-spacing:-0.01em;
+    text-wrap:balance;
+  }
+  .sub{ color:var(--text-muted); font-size:13.5px; max-width:56ch; }
+
+  .steps{
+    display:flex; gap:6px; align-items:center; font-size:12.5px; color:var(--text-faint);
+  }
+  .steps .step{
+    display:flex; align-items:center; gap:6px; padding:6px 10px;
+    border:1px solid var(--border); border-radius:100px; background:var(--surface);
+  }
+  .steps .step.active{ color:var(--text); border-color:var(--accent); background:var(--accent-soft); }
+  .steps .step .n{
+    width:16px; height:16px; border-radius:50%; background:var(--surface-3);
+    display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600;
+  }
+  .steps .step.active .n{ background:var(--accent); color:var(--accent-contrast); }
+
+  .grid{
+    display:grid; grid-template-columns: 340px 1fr; gap:20px; align-items:start;
+  }
+  @media (max-width: 900px){ .grid{ grid-template-columns: 1fr; } }
+
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+  .card + .card{ margin-top:16px; }
+  .card .card-head{
+    padding:14px 16px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .card .card-head h2{ margin:0; font-size:14px; font-weight:600; }
+  .card .card-head .hint{ font-size:11.5px; color:var(--text-faint); }
+  .card .card-body{ padding:16px; display:flex; flex-direction:column; gap:12px; }
+
+  .dropzone{
+    border:1.5px dashed var(--border); border-radius:8px; padding:22px 14px;
+    text-align:center; color:var(--text-muted); font-size:13px; cursor:pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .dropzone:hover, .dropzone.drag{ border-color:var(--accent); background:var(--accent-soft); }
+  .dropzone input{ display:none; }
+  .dropzone .fname{ margin-top:6px; font-weight:600; color:var(--text); font-size:12.5px; }
+
+  label.field{ display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:var(--text-muted); }
+  label.field span.lbl{ font-weight:600; color:var(--text); font-size:12px; }
+  input[type="text"], input[type="number"], select, textarea{
+    font:inherit; font-size:13px; padding:8px 10px; border-radius:7px;
+    border:1px solid var(--border); background:var(--surface); color:var(--text);
     width:100%;
-    max-width:360px;
-    padding:32px 28px 28px;
   }
-  .login-card .hazard{
-    height:6px;
-    margin:-1px -1px 24px -1px;
-    background: repeating-linear-gradient(45deg, var(--yellow) 0 10px, #181b1c 10px 20px);
+  textarea{ resize:vertical; min-height:52px; font-family:'IBM Plex Mono', monospace; font-size:12px; }
+  input:focus, select:focus, textarea:focus, button:focus-visible{
+    outline:2px solid var(--accent); outline-offset:1px;
   }
-  .login-card h1{ font-size:20px; margin:0 0 4px; color:var(--text-hi); }
-  .login-card p.sub{ color:var(--text-dim); font-size:12px; margin:0 0 24px; }
-  .campo{ margin-bottom:16px; }
-  .campo label{ display:block; font-size:11px; color:var(--text-mid); margin-bottom:6px; font-family:'Oswald',sans-serif; letter-spacing:0.05em; text-transform:uppercase;}
-  .campo input, .campo select, .campo textarea{
-    width:100%;
-    background:var(--bg-base);
-    border:1px solid var(--steel-line);
-    color:var(--text-hi);
-    padding:10px 10px;
-    font-family:'IBM Plex Mono', monospace;
-    font-size:13px;
-    border-radius:var(--radius);
-  }
-  .campo input:focus, .campo select:focus, .campo textarea:focus{
-    outline:2px solid var(--yellow);
-    outline-offset:1px;
-    border-color:var(--yellow-dim);
-  }
-  .error-msg{ color:var(--red); font-size:12px; margin-top:10px; min-height:14px; }
 
-  .btn-industrial{
-    display:inline-flex; align-items:center; justify-content:center; gap:8px;
-    font-family:'Oswald', sans-serif;
-    text-transform:uppercase;
-    letter-spacing:0.06em;
-    font-size:13px;
-    padding:12px 18px;
-    border:1px solid var(--steel-line-light);
-    background:var(--bg-panel-2);
-    color:var(--text-hi);
-    cursor:pointer;
-    border-radius:var(--radius);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 0 rgba(0,0,0,0.4);
-  }
-  .btn-industrial:active{ transform:translateY(1px); box-shadow:none; }
-  .btn-industrial--primary{
-    background:var(--yellow);
-    color:#221a02;
-    border-color:#a9860a;
-  }
-  .btn-industrial--full{ width:100%; }
-  .btn-industrial:disabled{ opacity:0.5; cursor:not-allowed; }
+  .row{ display:flex; gap:8px; }
+  .row > *{ flex:1; }
 
-  /* ---------- APP SHELL ---------- */
-  #app{ display:none; min-height:100vh; flex-direction:column; }
-  .topbar{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:14px 22px;
-    background:var(--bg-panel);
-    border-bottom:3px solid var(--yellow);
+  button{
+    font:inherit; font-size:13px; font-weight:600; padding:8px 14px; border-radius:7px;
+    border:1px solid var(--border); background:var(--surface-2); color:var(--text);
+    cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
   }
-  .topbar h1{ font-size:16px; margin:0; color:var(--text-hi); }
-  .topbar .planta{ font-size:10px; color:var(--text-dim); letter-spacing:0.08em; }
-  .topbar-right{ display:flex; align-items:center; gap:14px; }
-  .topbar-right .usuario{ font-size:12px; color:var(--text-mid); }
+  button:hover{ background:var(--surface-3); }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-contrast); }
+  button.primary:hover{ background:var(--accent-hover); border-color:var(--accent-hover); }
+  button.ghost{ background:transparent; }
+  button.small{ padding:5px 9px; font-size:11.5px; }
+  button:disabled{ opacity:.45; cursor:not-allowed; }
+  button.danger{ color:var(--danger-text); }
 
-  .toolbar{
-    display:flex; flex-wrap:wrap; gap:12px; align-items:end;
-    padding:16px 22px;
-    border-bottom:1px solid var(--steel-line);
-  }
-  .toolbar .campo{ margin-bottom:0; min-width:180px; }
-  .toolbar .campo.buscar{ flex:1; min-width:220px; }
-  .contador-resultados{ font-size:11px; color:var(--text-dim); margin-left:auto; align-self:center;}
+  select#profileSelect{ font-weight:600; }
 
-  main{ flex:1; padding:18px 22px 60px; overflow:auto; }
+  details.adv{ border-top:1px dashed var(--border); padding-top:10px; }
+  details.adv summary{ cursor:pointer; font-size:12px; font-weight:600; color:var(--text-muted); list-style:none; display:flex; align-items:center; gap:6px;}
+  details.adv summary::-webkit-details-marker{ display:none; }
+  details.adv summary::before{ content:'▸'; display:inline-block; transition:transform .15s; }
+  details.adv[open] summary::before{ transform:rotate(90deg); }
+  details.adv .adv-body{ padding-top:10px; display:flex; flex-direction:column; gap:10px; }
 
-  table.manifest{ width:100%; border-collapse:collapse; font-size:12.5px; }
-  table.manifest thead th{
-    text-align:left;
-    font-family:'Oswald', sans-serif;
-    text-transform:uppercase;
-    font-size:10.5px;
-    letter-spacing:0.05em;
-    color:var(--text-dim);
-    padding:8px 10px;
-    border-bottom:2px solid var(--yellow-dim);
-    position:sticky; top:0;
-    background:var(--bg-base);
-  }
-  table.manifest tbody tr{
-    border-bottom:1px solid var(--steel-line);
-    cursor:pointer;
-  }
-  table.manifest tbody tr:hover{ background:var(--bg-panel); }
-  table.manifest td{ padding:9px 10px; vertical-align:middle; color:var(--text-mid); }
-  table.manifest td.id-col{ color:var(--text-hi); font-weight:600; }
+  .rule-list{ display:flex; flex-direction:column; gap:6px; }
+  .rule-row{ display:flex; gap:6px; align-items:center; }
+  .rule-row input{ flex:1; }
+  .rule-row .arrow{ color:var(--text-faint); font-size:12px; }
 
-  .badge-estado{
-    display:inline-block;
-    font-family:'Oswald', sans-serif;
-    text-transform:uppercase;
-    font-size:10px;
-    letter-spacing:0.04em;
-    padding:3px 8px;
-    border-radius:2px;
-    border:1px solid transparent;
-    white-space:nowrap;
-  }
-  .estado-nota-enviada{ background:#2b3032; color:#c9c2a0; border-color:var(--steel-line-light); }
-  .estado-en-busqueda{ background:#3a2f0a; color:var(--yellow); border-color:var(--yellow-dim); }
-  .estado-en-proceso-de-entrega{ background:#1e3a4c; color:#7ec7e8; border-color:#2f6a86; }
-  .estado-infractor-no-retira{ background:#4a2410; color:#e39a63; border-color:var(--rust); }
-  .estado-entregado{ background:#1d3320; color:#8fd39a; border-color:var(--green); }
-  .estado-decomiso{ background:#3a1512; color:#e8817a; border-color:var(--red); }
-  .estado-sin-respuesta{ background:#2b3032; color:var(--text-dim); border-color:var(--steel-line-light); }
+  .kv-row{ display:grid; grid-template-columns: 1fr 1fr auto; gap:6px; }
 
-  .vacio{ text-align:center; padding:60px 20px; color:var(--text-dim); }
+  .stat-strip{ display:flex; gap:10px; flex-wrap:wrap; }
+  .stat{
+    flex:1; min-width:110px; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:8px; padding:10px 12px;
+  }
+  .stat .num{ font-size:20px; font-weight:700; font-family:'IBM Plex Mono',monospace; }
+  .stat .lbl{ font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
+  .stat.ok .num{ color:var(--ok-text); }
+  .stat.warn .num{ color:var(--warn-text); }
+  .stat.bad .num{ color:var(--danger-text); }
 
-  /* ---------- PANEL LATERAL (ficha) ---------- */
-  .overlay{
-    display:none;
-    position:fixed; inset:0;
-    background:rgba(0,0,0,0.55);
-    z-index:50;
+  .table-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:8px; }
+  table{ border-collapse:collapse; width:100%; font-size:12.5px; min-width:1080px; }
+  thead th{
+    position:sticky; top:0; background:var(--surface-2); text-align:left; font-weight:600;
+    padding:9px 10px; border-bottom:1px solid var(--border); white-space:nowrap; font-size:11px;
+    text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted);
+    z-index: 1;
   }
-  .ficha{
-    position:fixed; top:0; right:0; bottom:0;
-    width:min(560px, 100%);
-    background:var(--bg-base);
-    border-left:3px solid var(--yellow);
-    z-index:51;
-    display:flex; flex-direction:column;
-    box-shadow:-8px 0 24px rgba(0,0,0,0.4);
+  tbody td{ padding:6px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:var(--surface-2); }
+  tbody tr.row-bad{ background:color-mix(in srgb, var(--danger-bg) 45%, transparent); }
+  tbody tr.row-warn{ background:color-mix(in srgb, var(--warn-bg) 45%, transparent); }
+  td.num{ font-family:'IBM Plex Mono',monospace; white-space:nowrap; }
+  td input[type="text"]{ padding:4px 7px; font-size:12px; min-width:120px; }
+  td select{ padding:4px 6px; font-size:12px; }
+  .pill{
+    display:inline-flex; align-items:center; padding:2px 8px; border-radius:100px;
+    font-size:10.5px; font-weight:600; letter-spacing:.02em; white-space:nowrap; border:1px solid transparent;
   }
-  .ficha-header{
-    padding:18px 22px;
-    background:var(--bg-panel);
-    border-bottom:1px solid var(--steel-line);
-    display:flex; justify-content:space-between; align-items:start;
-  }
-  .ficha-header h2{ font-size:16px; margin:0 0 4px; }
-  .ficha-header .id-tag{ font-size:11px; color:var(--yellow); }
-  .cerrar-ficha{ background:none; border:none; color:var(--text-mid); font-size:20px; cursor:pointer; line-height:1;}
+  .pill.ok{ background:var(--ok-bg); color:var(--ok-text); border-color:var(--ok-border); }
+  .pill.warn{ background:var(--warn-bg); color:var(--warn-text); border-color:var(--warn-border); }
+  .pill.bad{ background:var(--danger-bg); color:var(--danger-text); border-color:var(--danger-border); }
+  .caption-cell{ max-width:220px; white-space:pre-wrap; color:var(--text-muted); font-size:11.5px; }
+  .file-cell{ font-size:11px; color:var(--text-faint); font-family:'IBM Plex Mono',monospace; }
 
-  .ficha-body{ flex:1; overflow-y:auto; padding:18px 22px; }
-  .seccion-titulo{
-    font-size:11px; color:var(--text-dim);
-    margin:22px 0 10px; padding-bottom:6px;
-    border-bottom:1px dashed var(--steel-line);
+  .empty{
+    padding:40px 20px; text-align:center; color:var(--text-faint); font-size:13px;
   }
-  .seccion-titulo:first-child{ margin-top:0; }
-  .solo-lectura-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; font-size:12px; }
-  .solo-lectura-grid div span.k{ display:block; color:var(--text-dim); font-size:10px; text-transform:uppercase; letter-spacing:0.04em; }
-  .solo-lectura-grid div span.v{ color:var(--text-mid); }
 
-  .fila-contacto{
-    display:grid; grid-template-columns:130px 1fr; gap:10px;
-    align-items:start;
-    margin-bottom:12px;
-  }
-  .ficha-footer{
-    padding:16px 22px;
-    border-top:1px solid var(--steel-line);
-    background:var(--bg-panel);
-    display:flex; gap:10px; align-items:center;
-  }
-  .guardado-msg{ font-size:11px; color:var(--green); }
-  .guardado-msg.error{ color:var(--red); }
+  .toolbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .toolbar .left{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 
-  @media (max-width: 640px){
-    table.manifest thead{ display:none; }
-    table.manifest, table.manifest tbody, table.manifest tr, table.manifest td{ display:block; width:100%; }
-    table.manifest tr{ padding:10px 4px; }
-    table.manifest td{ padding:3px 6px; }
+  .skipped-list{ display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; }
+  .skipped-item{
+    display:flex; gap:8px; align-items:baseline; font-size:12px; padding:6px 8px;
+    border:1px solid var(--border); border-radius:6px; background:var(--surface-2);
   }
+  .skipped-item .when{ color:var(--text-faint); font-family:'IBM Plex Mono',monospace; font-size:11px; white-space:nowrap; }
+  .skipped-item .cap{ color:var(--text-muted); flex:1; }
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--text); color:var(--bg); padding:9px 16px; border-radius:8px;
+    font-size:12.5px; font-weight:600; box-shadow:var(--shadow); opacity:0; pointer-events:none;
+    transition:opacity .2s, transform .2s;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
+
+  footer.note{ margin-top:26px; font-size:11.5px; color:var(--text-faint); max-width:70ch; }
+  .link-btn{ background:none; border:none; padding:0; color:var(--accent); font-weight:600; cursor:pointer; font-size:inherit; }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
 </style>
 </head>
 <body>
 
-<!-- ============ LOGIN ============ -->
-<div id="pantalla-login">
-  <div class="plate plate-rivet-bottom login-card">
-    <div class="hazard"></div>
-    <h1>Devoluciones DGFIS</h1>
-    <p class="sub">Gestión de mercadería en depósito — acceso restringido</p>
-    <form id="form-login">
-      <div class="campo">
-        <label for="email">Usuario (email)</label>
-        <input type="email" id="email" required autocomplete="username" />
-      </div>
-      <div class="campo">
-        <label for="pass">Contraseña</label>
-        <input type="password" id="pass" required autocomplete="current-password" />
-      </div>
-      <button type="submit" class="btn-industrial btn-industrial--primary btn-industrial--full">Ingresar</button>
-      <div class="error-msg" id="login-error"></div>
-    </form>
-  </div>
-</div>
 
-<!-- ============ APP ============ -->
-<div id="app">
-  <div class="topbar">
+<div class="shell">
+  <header class="top">
+    <div class="titling">
+      <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
+      <h1>WhatsApp → Urbetrack</h1>
+      <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
+    </div>
+    <div class="steps">
+      <div class="step" id="stepPill1"><span class="n">1</span> Subir chat</div>
+      <div class="step" id="stepPill2"><span class="n">2</span> Perfil</div>
+      <div class="step" id="stepPill3"><span class="n">3</span> Revisar</div>
+      <div class="step" id="stepPill4"><span class="n">4</span> Exportar</div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT COLUMN -->
     <div>
-      <h1>Devoluciones DGFIS</h1>
-      <div class="planta">Gerencia de Venta Sin Permiso</div>
-    </div>
-    <div class="topbar-right">
-      <span class="usuario" id="usuario-actual"></span>
-      <button class="btn-industrial" id="btn-refrescar">↻ Refrescar</button>
-      <button class="btn-industrial" id="btn-logout">Salir</button>
-    </div>
-  </div>
+      <div class="card">
+        <div class="card-head"><h2>1 · Chat exportado</h2><span class="hint">.txt de WhatsApp</span></div>
+        <div class="card-body">
+          <div class="dropzone" id="dropzone">
+            <div>Arrastrá el .txt acá o hacé clic para elegirlo</div>
+            <div class="fname" id="fileName">Ningún archivo cargado</div>
+            <input type="file" id="fileInput" accept=".txt" />
+          </div>
+          <div class="row">
+            <label class="field"><span class="lbl">Fotos referenciadas</span>
+              <span class="mono" id="mediaCount" style="font-size:12px;color:var(--text-muted)">0 archivos mencionados</span>
+            </label>
+          </div>
+        </div>
+      </div>
 
-  <div class="toolbar">
-    <div class="campo buscar">
-      <label>Buscar (ID, contacto, artículo)</label>
-      <input type="text" id="filtro-texto" placeholder="Ej: 245, Juan Pérez, indumentaria..." />
-    </div>
-    <div class="campo">
-      <label>Estado</label>
-      <select id="filtro-estado">
-        <option value="">Todos</option>
-        <option value="NOTA ENVIADA">Nota enviada</option>
-        <option value="EN BUSQUEDA">En búsqueda</option>
-        <option value="EN PROCESO DE ENTREGA">En proceso de entrega</option>
-        <option value="INFRACTOR NO RETIRA">Infractor no retira</option>
-        <option value="ENTREGADO">Entregado</option>
-        <option value="DECOMISO">Decomiso</option>
-        <option value="SIN RESPUESTA">Sin respuesta</option>
-      </select>
-    </div>
-    <div class="contador-resultados" id="contador"></div>
-  </div>
+      <div class="card">
+        <div class="card-head">
+          <h2>2 · Perfil de operativo</h2>
+          <span class="hint">reglas por grupo de WhatsApp</span>
+        </div>
+        <div class="card-body">
+          <label class="field"><span class="lbl">Perfil activo</span>
+            <select id="profileSelect"></select>
+          </label>
+          <div class="row">
+            <button id="btnNewProfile" class="small">＋ Nuevo perfil</button>
+            <button id="btnDupProfile" class="small">Duplicar</button>
+            <button id="btnDelProfile" class="small danger">Eliminar</button>
+          </div>
+          <div class="row">
+            <button id="btnLoadGovna" class="small">📋 Duplicar plantilla GOVNA</button>
+            <button id="btnLoadMovistar" class="small">🎤 Plantilla Movistar Arena</button>
+          </div>
+          <div class="row">
+            <button id="btnResetAll" class="small danger">🗑 Reiniciar todo (borrar perfiles guardados)</button>
+          </div>
 
-  <main>
-    <table class="manifest" id="tabla-manifest">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Contacto</th>
-          <th>Teléfono</th>
-          <th>Artículo</th>
-          <th>Fecha entrega</th>
-          <th>Estado</th>
-        </tr>
-      </thead>
-      <tbody id="tbody-manifest"></tbody>
-    </table>
-    <div class="vacio" id="vacio" style="display:none;">No hay expedientes que coincidan con el filtro.</div>
-  </main>
-</div>
+          <label class="field"><span class="lbl">Nombre del perfil</span>
+            <input type="text" id="profName" />
+          </label>
 
-<!-- ============ FICHA (panel lateral) ============ -->
-<div class="overlay" id="overlay"></div>
-<div class="ficha" id="ficha">
-  <div class="ficha-header">
+          <details class="adv" id="advDetails">
+            <summary>Reglas avanzadas del perfil</summary>
+            <div class="adv-body">
+
+              <label class="field"><span class="lbl">Encabezados de contexto (uno por línea: patrón | etiqueta | EVENTO/RELEVAMIENTO)</span>
+                <textarea id="ctxHeaders" placeholder="MOVISTAR ARENA (\d{2}/\d{2}/\d{4}) | MOVISTAR ARENA $1 | EVENTO"></textarea>
+              </label>
+
+              <label class="field"><span class="lbl">Kind por defecto si no hay encabezado aún</span>
+                <select id="defaultKind"><option value="EVENTO">EVENTO</option><option value="RELEVAMIENTO">RELEVAMIENTO</option></select>
+              </label>
+
+              <label class="field"><span class="lbl">Correcciones de nombres de calle (patrón regex → nombre correcto), una por línea</span>
+                <textarea id="streetFixes" placeholder="\bhumbold\b → Humboldt"></textarea>
+              </label>
+
+              <label class="field"><span class="lbl">Correcciones de direcciones completas (exactas), una por línea</span>
+                <textarea id="addrFixes" placeholder="Humboldt 6016 → Av. Corrientes 6016"></textarea>
+              </label>
+
+              <label class="field"><span class="lbl">Reglas de categorización para contexto RELEVAMIENTO (palabra clave → Tipo de servicio), una por línea, en orden de prioridad</span>
+                <textarea id="catRules" placeholder="parrilla → PARRILLA"></textarea>
+              </label>
+
+              <label class="field"><span class="lbl">Tipo de servicio por defecto (EVENTO)</span>
+                <input type="text" id="eventoTipo" value="RELEVAMIENTO" />
+              </label>
+
+              <label class="field"><span class="lbl">Reglas avanzadas (Manual Urbetrack) — palabras clave (separadas por ";", TODAS deben aparecer) ⇒ Grupo | Tipo de servicio | Detalle de servicio. Una por línea, en orden de prioridad.</span>
+                <textarea id="advRules" placeholder="fiscal;agres ⇒ CONSULTA FISCALIA | AGRESION | NO DIO CURSO" style="min-height:90px"></textarea>
+              </label>
+
+              <div class="row">
+                <label class="field"><span class="lbl">Solicitante por defecto</span>
+                  <input type="text" id="solicitanteDefault" value="OPERATIVO" />
+                </label>
+              </div>
+              <label class="field"><span class="lbl">Reglas de Solicitante (palabra clave → OPERATIVO/PATRULLA/POLIGONO), una por línea</span>
+                <textarea id="solicitanteRules" placeholder="patrulla → PATRULLA"></textarea>
+              </label>
+
+              <div class="row">
+                <label class="field"><span class="lbl">Detectar "secuestro" como categoría especial</span>
+                  <select id="secEnabled"><option value="1">Sí</option><option value="0">No</option></select>
+                </label>
+                <label class="field"><span class="lbl">Palabra clave</span>
+                  <input type="text" id="secKeyword" value="secuestr" />
+                </label>
+              </div>
+              <div class="row">
+                <label class="field"><span class="lbl">Grupo Urbetrack</span>
+                  <input type="text" id="secGrupo" value="OFICIO" />
+                </label>
+                <label class="field"><span class="lbl">Tipo de servicio</span>
+                  <input type="text" id="secTipo" value="SECUESTRO" />
+                </label>
+              </div>
+
+              <div class="row">
+                <button id="btnSaveProfile" class="primary small">Guardar perfil</button>
+                <button id="btnExportProfile" class="small">Exportar perfil (.json)</button>
+                <button id="btnImportProfile" class="small">Importar perfil</button>
+                <input type="file" id="profileFileInput" accept=".json" style="display:none" />
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>3 · Procesar</h2></div>
+        <div class="card-body">
+          <label class="field"><span class="lbl">Ventana para agrupar fotos sin texto (minutos)</span>
+            <input type="number" id="photoWindow" value="2" min="0" max="30" />
+          </label>
+          <button id="btnParse" class="primary" style="width:100%; justify-content:center;">Convertir chat con este perfil</button>
+          <div class="hint" id="parseStatus" style="font-size:11.5px;color:var(--text-faint);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
     <div>
-      <h2>Expediente</h2>
-      <div class="id-tag" id="ficha-id"></div>
+      <div class="card">
+        <div class="card-head"><h2>Resumen</h2><span class="hint" id="resumenHint"></span></div>
+        <div class="card-body">
+          <div class="stat-strip">
+            <div class="stat"><div class="num mono" id="statTotal">0</div><div class="lbl">Incidencias</div></div>
+            <div class="stat ok"><div class="num mono" id="statAddr">0</div><div class="lbl">Con dirección</div></div>
+            <div class="stat warn"><div class="num mono" id="statSkipped">0</div><div class="lbl">Sin dirección</div></div>
+            <div class="stat"><div class="num mono" id="statSecuestro">0</div><div class="lbl">Secuestros</div></div>
+            <div class="stat"><div class="num mono" id="statFotos">0</div><div class="lbl">Con foto</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Incidencias detectadas</h2>
+          <span class="hint">editá dirección / grupo / tipo antes de exportar</span>
+        </div>
+        <div class="card-body">
+          <div class="toolbar">
+            <div class="left">
+              <button id="btnExportJson" class="small">⬇ Exportar JSON</button>
+              <button id="btnExportXlsx" class="primary small">⬇ Exportar Excel (.xlsx)</button>
+              <button id="btnExportCsv" class="small">⬇ Exportar CSV</button>
+            </div>
+            <div class="left">
+              <span class="hint" id="rowCountHint"></span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="resultsTable">
+              <thead>
+                <tr>
+                  <th>Fecha</th><th>Hora</th><th>Categoría</th><th>Grupo</th><th>Tipo servicio</th><th>Detalle servicio</th>
+                  <th>Dirección</th><th>Código / Precinto / Orden</th><th>Foto</th><th>Caption</th><th>Estado</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody">
+                <tr><td colspan="12"><div class="empty">Subí un chat y hacé clic en "Convertir" para ver las incidencias acá.</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Mensajes con foto sin dirección detectada</h2>
+          <span class="hint" id="skippedHint">revisalos y agregalos a mano si corresponde</span>
+        </div>
+        <div class="card-body">
+          <div class="skipped-list" id="skippedList">
+            <div class="empty" style="padding:16px;">Nada por ahora.</div>
+          </div>
+        </div>
+      </div>
     </div>
-    <button class="cerrar-ficha" id="cerrar-ficha">✕</button>
   </div>
-  <div class="ficha-body" id="ficha-body">
-    <!-- se completa por JS -->
-  </div>
-  <div class="ficha-footer">
-    <button class="btn-industrial btn-industrial--primary" id="btn-guardar">Guardar cambios</button>
-    <span class="guardado-msg" id="guardado-msg"></span>
-  </div>
+
+  <footer class="note">
+    Este conversor solo lee y transforma texto localmente en tu navegador — no sube el chat a ningún servidor. El JSON exportado es el insumo para el paso siguiente (verificación de direcciones vía API oficial y carga a Urbetrack).
+  </footer>
 </div>
 
-<script type="module">
-// ==========================================================================
-// CONFIGURACIÓN — completar antes de desplegar
-// ==========================================================================
-const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID",
-};
+<div class="toast" id="toast"></div>
 
-// URLs de los triggers HTTP de Power Automate (ver GUIA-SETUP-POWER-AUTOMATE-FIREBASE.md)
-const URL_LEER = "https://default2377472e800446488456bd9687afa1.50.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2cc65446812e442da2a014d3738c096d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=XUk4HSXZr2jwnNhTFmUFEiT83UhOOEI6cSILdiFutds";
-const URL_ACTUALIZAR = "https://PEGAR_URL_FLOW_ACTUALIZAR";
+<script>
+(function(){
+  "use strict";
 
-// Si configuraste un encabezado secreto en los flows, completalo acá:
-const CLAVE_INTERNA = "";
+  // ---------- persistence ----------
+  const LS_KEY = "wa_urbetrack_profiles_v1";
+  const LS_ACTIVE = "wa_urbetrack_active_profile_v1";
 
-// ==========================================================================
-// FIREBASE
-// ==========================================================================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {
-  getFirestore, collection, addDoc, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-const firebaseApp = initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
-const db = getFirestore(firebaseApp);
-
-// ==========================================================================
-// CATÁLOGOS (listas fijas de columnas J-W)
-// ==========================================================================
-const OPCIONES_SE_ENCUENTRA = ["SI", "NO", "PARCIAL"];
-
-const OPCIONES_TIPO_ARTICULO = [
-  "INDUMENTARIA", "GASTRONOMIA", "CARRO / CARRITO", "PARRILLA", "DECK",
-  "ACCESORIOS", "HIGIENE / LIMPIEZA", "CALZADO", "JUGUETES", "BAZAR",
-  "TEXTIL / TELAS", "ESTRUCTURA (deck, gazebo, valla, pallets)",
-  "PUESTO DE DIARIOS", "FLORERIA", "LIBRERIA", "COSMETICA / PERFUMERIA",
-  "ARTESANIAS", "GENERADOR / GRUPO ELECTROGENO", "ELEMENTOS DE DESALOJO",
-  "DECOMISO", "ART. VARIOS", "OTRO",
-];
-
-const OPCIONES_ESTADO = [
-  "NOTA ENVIADA", "EN BUSQUEDA", "EN PROCESO DE ENTREGA",
-  "INFRACTOR NO RETIRA", "ENTREGADO", "DECOMISO", "SIN RESPUESTA",
-];
-
-function claseEstado(estado) {
-  return "estado-" + (estado || "").toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "");
-}
-
-// ==========================================================================
-// ESTADO EN MEMORIA (nada de localStorage: vive mientras la pestaña está abierta)
-// ==========================================================================
-let expedientes = [];
-let expedienteAbiertoId = null;
-let cambiosPendientes = {};
-
-// ==========================================================================
-// LOGIN
-// ==========================================================================
-const pantallaLogin = document.getElementById("pantalla-login");
-const appEl = document.getElementById("app");
-const formLogin = document.getElementById("form-login");
-const loginError = document.getElementById("login-error");
-
-formLogin.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  loginError.textContent = "";
-  const email = document.getElementById("email").value.trim();
-  const pass = document.getElementById("pass").value;
-  try {
-    await signInWithEmailAndPassword(auth, email, pass);
-  } catch (err) {
-    loginError.textContent = "No se pudo ingresar. Revisá usuario y contraseña.";
+  // Perfil base del conversor: arranca directamente desde la estructura del
+  // "Manual Carga de Urbetrack — Distrito GOVNA" (sin parámetros de operativos
+  // anteriores como Movistar Arena) e incluye reglas de corrección/normalización
+  // de nombres de calle detectadas en la práctica (typos frecuentes del chat).
+  function defaultProfile(){
+    return {
+      id: "distrito-govna",
+      name: "Distrito GOVNA (Manual)",
+      contextHeaders: [],
+      defaultKind: "RELEVAMIENTO",
+      streetFixes: [
+        // Osvaldo Cruz: en el chat suele aparecer con el orden de palabras
+        // invertido y con un typo ("osbaldo" en vez de "osvaldo")
+        ["\\bcruz\\s*osbaldo\\b", "Osvaldo Cruz"],
+        ["\\bcruz\\s*osvaldo\\b", "Osvaldo Cruz"],
+        ["\\bosbaldo\\s*cruz\\b", "Osvaldo Cruz"],
+        // Iguazú: typo frecuente "Iguazi"
+        ["\\biguazi\\b", "Iguazu"],
+        // Luján: a veces pegado al número sin espacio ("Lujan3760")
+        ["\\blujan(?=\\d)", "Lujan "],
+        // Yrigoyen / variantes comunes de tipeo
+        ["\\bhirigoyen\\b", "Hipólito Yrigoyen"]
+      ],
+      addressFixes: [],
+      categorizationRules: [
+        ["sin infractor", "SIN INCIDENCIAS"],
+        ["sin incidencia", "SIN INCIDENCIAS"],
+        ["parrilla", "PARRILLA"]
+      ],
+      relevamientoDefaultTipo: "SIN INCIDENCIAS",
+      eventoDefaultTipo: "RELEVAMIENTO",
+      secuestro: { enabled: true, keyword: "secuestr", grupo: "OFICIO", tipo: "SECUESTRO" },
+      advancedRules: govnaAdvancedRules(),
+      solicitanteDefault: "OPERATIVO",
+      solicitanteRules: [["patrulla", "PATRULLA"], ["pol[ií]gono", "POLIGONO"]]
+    };
   }
-});
 
-document.getElementById("btn-logout").addEventListener("click", () => signOut(auth));
-
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    pantallaLogin.style.display = "none";
-    appEl.style.display = "flex";
-    document.getElementById("usuario-actual").textContent = user.email;
-    cargarExpedientes();
-  } else {
-    pantallaLogin.style.display = "flex";
-    appEl.style.display = "none";
+  // Perfil del operativo anterior (Movistar Arena / eventos masivos) — queda
+  // disponible como plantilla por si se repite ese tipo de evento, pero ya
+  // NO es el perfil con el que arranca el conversor.
+  function movistarArenaProfile(){
+    return {
+      id: uid(),
+      name: "Movistar Arena / Eventos Masivos",
+      contextHeaders: [
+        { pattern: "MOVISTAR ARENA (\\d{2}/\\d{2}/\\d{4})", label: "MOVISTAR ARENA $1", kind: "EVENTO" },
+        { pattern: "Hoja de Ruta Marcha", label: "Marcha por Jesus", kind: "RELEVAMIENTO" }
+      ],
+      defaultKind: "EVENTO",
+      streetFixes: [
+        ["\\bhumbold\\b","Humboldt"], ["\\bhumbolt\\b","Humboldt"], ["\\bhumboldt\\b","Humboldt"],
+        ["\\bav\\.?\\s*corrientes\\b","Av. Corrientes"], ["^corrientes\\b","Av. Corrientes"],
+        ["\\bpadilla\\b","Padilla"], ["\\bpandilla\\b","Padilla"], ["\\bdorrego\\b","Dorrego"],
+        ["\\bmurillo\\b","Murillo"], ["\\bcamargo\\b","Camargo"], ["\\bdarwin\\b","Darwin"],
+        ["\\bav\\.?\\s*de\\s*mayo\\b","Av. de Mayo"], ["\\bavenida\\s*de\\s*mayo\\b","Av. de Mayo"],
+        ["\\brivadavia\\b","Rivadavia"], ["\\bsantiago\\s*del\\s*estero\\b","Santiago del Estero"],
+        ["\\bhirigoyen\\b","Hipólito Yrigoyen"]
+      ],
+      addressFixes: [
+        ["Humboldt 6016","Av. Corrientes 6016"],
+        ["Humboldt 6114","Av. Corrientes 6114"],
+        ["Av. Corrientes 9094","Av. Corrientes 6094"]
+      ],
+      categorizationRules: [
+        ["sin infractor","SIN INCIDENCIAS"],
+        ["sin incidencia","SIN INCIDENCIAS"],
+        ["parrilla","PARRILLA"],
+        ["chipa","VENDEDOR AMBULANTE"],
+        ["comida","VENDEDOR AMBULANTE"],
+        ["aliment","VENDEDOR AMBULANTE"]
+      ],
+      relevamientoDefaultTipo: "SIN INCIDENCIAS",
+      eventoDefaultTipo: "RELEVAMIENTO",
+      secuestro: { enabled: true, keyword: "secuestr", grupo: "OFICIO", tipo: "SECUESTRO" },
+      advancedRules: [],
+      solicitanteDefault: "OPERATIVO",
+      solicitanteRules: []
+    };
   }
-});
 
-// ==========================================================================
-// CARGA DE DATOS (Flow 1: leer)
-// ==========================================================================
-async function cargarExpedientes() {
-  const tbody = document.getElementById("tbody-manifest");
-  tbody.innerHTML = `<tr><td colspan="6" style="padding:20px;color:var(--text-dim);">Cargando expedientes...</td></tr>`;
-  try {
-    const resp = await fetch(URL_LEER, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(CLAVE_INTERNA ? { "x-clave-interna": CLAVE_INTERNA } : {}) },
+  // Reglas de clasificación derivadas del "Manual Carga de Urbetrack — Distrito
+  // GOVNA": mapean palabras clave del texto de la incidencia directamente a
+  // Grupo / Tipo de servicio / Detalle de servicio, evaluadas en orden (la
+  // primera regla cuyas palabras clave TODAS aparecen en el texto, gana).
+  function govnaAdvancedRules(){
+    return [
+      { keywords: ["fiscal", "arma blanca"], grupo: "CONSULTA FISCALIA", tipoServicio: "ARMA BLANCA", detalleServicio: "" },
+      { keywords: ["fiscal", "entorpec"], grupo: "CONSULTA FISCALIA", tipoServicio: "ENTORPECER PROCEDIMIENTO", detalleServicio: "" },
+      { keywords: ["fiscal", "resistencia"], grupo: "CONSULTA FISCALIA", tipoServicio: "RESISTENCIA A LA AUTORIDAD", detalleServicio: "" },
+      { keywords: ["fiscal", "agres", "no\\s+(?:\\w+\\s+){0,2}detenido"], grupo: "CONSULTA FISCALIA", tipoServicio: "AGRESION", detalleServicio: "NO DIO CURSO" },
+      { keywords: ["fiscal", "agres", "detenido"], grupo: "CONSULTA FISCALIA", tipoServicio: "AGRESION", detalleServicio: "DIO CURSO" },
+      { keywords: ["fiscal", "agres"], grupo: "CONSULTA FISCALIA", tipoServicio: "AGRESION", detalleServicio: "" },
+      { keywords: ["fiscal", "denuncia"], grupo: "CONSULTA FISCALIA", tipoServicio: "OTROS", detalleServicio: "" },
+      { keywords: ["fiscal"], grupo: "CONSULTA FISCALIA", tipoServicio: "OTROS", detalleServicio: "" },
+      { keywords: ["agres"], grupo: "AGRESION", tipoServicio: "", detalleServicio: "" },
+      { keywords: ["deriv"], grupo: "DERIVADO", tipoServicio: "DERIVADO", detalleServicio: "" },
+      { keywords: ["\\bsame\\b"], grupo: "SAME", tipoServicio: "", detalleServicio: "" },
+      { keywords: ["desalojo", "no\\s+(?:\\w+\\s+){0,2}dep[oó]sito"], grupo: "DESALOJO", tipoServicio: "NO VA AL DEPOSITO", detalleServicio: "" },
+      { keywords: ["desalojo", "pedro de mendoza"], grupo: "DESALOJO", tipoServicio: "VA AL DEPOSITO", detalleServicio: "PEDRO DE MENDOZA" },
+      { keywords: ["desalojo", "casta"], grupo: "DESALOJO", tipoServicio: "VA AL DEPOSITO", detalleServicio: "CASTAÑARES" },
+      { keywords: ["desalojo", "dep[oó]sito"], grupo: "DESALOJO", tipoServicio: "VA AL DEPOSITO", detalleServicio: "" },
+      { keywords: ["desalojo"], grupo: "DESALOJO", tipoServicio: "", detalleServicio: "" },
+      { keywords: ["recital"], grupo: "EVENTOS MASIVOS", tipoServicio: "", detalleServicio: "" },
+      { keywords: ["futbol"], grupo: "PARTIDOS DE FUTBOL", tipoServicio: "", detalleServicio: "" },
+      { keywords: ["partido"], grupo: "PARTIDOS DE FUTBOL", tipoServicio: "", detalleServicio: "" },
+      { keywords: ["punto cr[oó]nico"], grupo: "PUNTO CRONICO", tipoServicio: "", detalleServicio: "" },
+      { keywords: ["reclamo"], grupo: "RECLAMO", tipoServicio: "", detalleServicio: "" },
+      { keywords: ["gochu"], grupo: "FUERA DE OPERATORIA", tipoServicio: "", detalleServicio: "GOCHU" },
+      { keywords: ["transito"], grupo: "FUERA DE OPERATORIA", tipoServicio: "", detalleServicio: "TRANSITO" },
+      { keywords: ["goeip"], grupo: "FUERA DE OPERATORIA", tipoServicio: "", detalleServicio: "GOEIP" },
+      { keywords: ["fuera de operatoria"], grupo: "FUERA DE OPERATORIA", tipoServicio: "", detalleServicio: "" }
+    ];
+  }
+
+  // Copia del perfil base (Distrito GOVNA) con un id nuevo — para el botón
+  // "Plantilla Manual GOVNA", que arma un perfil adicional sin pisar el activo.
+  function govnaManualProfile(){
+    const p = defaultProfile();
+    p.id = uid();
+    return p;
+  }
+
+  function loadProfiles(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if(raw){ return JSON.parse(raw); }
+    }catch(e){}
+    const p = defaultProfile();
+    return [p];
+  }
+  function saveProfiles(list){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(list)); }catch(e){}
+  }
+  function getActiveId(){
+    try{ return localStorage.getItem(LS_ACTIVE); }catch(e){ return null; }
+  }
+  function setActiveId(id){
+    try{ localStorage.setItem(LS_ACTIVE, id); }catch(e){}
+  }
+
+  let profiles = loadProfiles();
+  let activeId = getActiveId() || (profiles[0] && profiles[0].id);
+  let rows = [];      // parsed incident rows (editable)
+  let skipped = [];   // messages with photo but no address found
+
+  // ---------- DOM ----------
+  const $ = (id) => document.getElementById(id);
+  const toastEl = $("toast");
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=>toastEl.classList.remove("show"), 2200);
+  }
+
+  function uid(){ return Math.random().toString(36).slice(2,10); }
+
+  // ---------- profile UI ----------
+  function refreshProfileSelect(){
+    const sel = $("profileSelect");
+    sel.innerHTML = "";
+    profiles.forEach(p=>{
+      const o = document.createElement("option");
+      o.value = p.id; o.textContent = p.name;
+      sel.appendChild(o);
     });
-    if (!resp.ok) throw new Error("Respuesta no OK del flow de lectura");
-    const data = await resp.json();
-    // El flow envuelve el array bajo la clave "result"
-    expedientes = Array.isArray(data) ? data : (data.result || []);
-  } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" style="padding:20px;color:var(--red);">No se pudo cargar el listado. Verificá la conexión con Power Automate. (${err.message})</td></tr>`;
-    return;
+    if(!profiles.find(p=>p.id===activeId)) activeId = profiles[0] && profiles[0].id;
+    sel.value = activeId;
   }
-  renderLista();
-}
 
-document.getElementById("btn-refrescar").addEventListener("click", cargarExpedientes);
-document.getElementById("filtro-texto").addEventListener("input", renderLista);
-document.getElementById("filtro-estado").addEventListener("change", renderLista);
+  function getActiveProfile(){
+    return profiles.find(p=>p.id===activeId) || profiles[0];
+  }
 
-// ==========================================================================
-// RENDER DE LA LISTA (manifest)
-// ==========================================================================
-function renderLista() {
-  const texto = document.getElementById("filtro-texto").value.trim().toLowerCase();
-  const estadoFiltro = document.getElementById("filtro-estado").value;
+  function linesFromPairs(pairs, sep){
+    return pairs.map(pair => pair.join(sep)).join("\n");
+  }
+  function pairsFromLines(text, sep){
+    return text.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+      const idx = l.indexOf(sep);
+      if(idx === -1) return null;
+      return [l.slice(0,idx).trim(), l.slice(idx+sep.length).trim()];
+    }).filter(Boolean);
+  }
+  // "kw1;kw2 => GRUPO | TIPO DE SERVICIO | DETALLE DE SERVICIO" per line
+  function advRulesToLines(rules){
+    return (rules||[]).map(r => `${(r.keywords||[]).join(";")} => ${r.grupo||""} | ${r.tipoServicio||""} | ${r.detalleServicio||""}`).join("\n");
+  }
+  function advRulesFromLines(text){
+    return text.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+      let arrowIdx = l.indexOf("=>");
+      let arrowLen = 2;
+      if(arrowIdx === -1){ arrowIdx = l.indexOf("⇒"); arrowLen = 1; }
+      if(arrowIdx === -1) return null;
+      const kwPart = l.slice(0, arrowIdx).trim();
+      const rest = l.slice(arrowIdx+arrowLen).trim();
+      const parts = rest.split("|").map(s=>s.trim());
+      const keywords = kwPart.split(";").map(s=>s.trim()).filter(Boolean);
+      if(!keywords.length || !parts[0]) return null;
+      return { keywords, grupo: parts[0]||"", tipoServicio: parts[1]||"", detalleServicio: parts[2]||"" };
+    }).filter(Boolean);
+  }
 
-  const filtrados = expedientes.filter((e) => {
-    const coincideTexto = !texto || [e.id, e.nombreContacto, e.telefonoContacto, e.articulo, e.tipoArticulo]
-      .some((v) => (v || "").toLowerCase().includes(texto));
-    const coincideEstado = !estadoFiltro || e.estado === estadoFiltro;
-    return coincideTexto && coincideEstado;
+  function loadProfileIntoForm(p){
+    $("profName").value = p.name;
+    $("ctxHeaders").value = p.contextHeaders.map(h=>`${h.pattern} | ${h.label} | ${h.kind}`).join("\n");
+    $("defaultKind").value = p.defaultKind;
+    $("streetFixes").value = linesFromPairs(p.streetFixes, " → ");
+    $("addrFixes").value = linesFromPairs(p.addressFixes, " → ");
+    $("catRules").value = linesFromPairs(p.categorizationRules, " → ");
+    $("eventoTipo").value = p.eventoDefaultTipo;
+    $("advRules").value = advRulesToLines(p.advancedRules || []);
+    $("solicitanteDefault").value = p.solicitanteDefault || "OPERATIVO";
+    $("solicitanteRules").value = linesFromPairs(p.solicitanteRules || [], " → ");
+    $("secEnabled").value = p.secuestro.enabled ? "1" : "0";
+    $("secKeyword").value = p.secuestro.keyword;
+    $("secGrupo").value = p.secuestro.grupo;
+    $("secTipo").value = p.secuestro.tipo;
+  }
+
+  function readProfileFromForm(){
+    const p = getActiveProfile();
+    const ctxLines = $("ctxHeaders").value.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+      const parts = l.split("|").map(s=>s.trim());
+      return { pattern: parts[0]||"", label: parts[1]||"", kind: (parts[2]||"EVENTO").toUpperCase() };
+    });
+    return {
+      id: p.id,
+      name: $("profName").value.trim() || p.name,
+      contextHeaders: ctxLines,
+      defaultKind: $("defaultKind").value,
+      streetFixes: pairsFromLines($("streetFixes").value, "→"),
+      addressFixes: pairsFromLines($("addrFixes").value, "→"),
+      categorizationRules: pairsFromLines($("catRules").value, "→"),
+      relevamientoDefaultTipo: p.relevamientoDefaultTipo || "SIN INCIDENCIAS",
+      eventoDefaultTipo: $("eventoTipo").value.trim() || "RELEVAMIENTO",
+      advancedRules: advRulesFromLines($("advRules").value),
+      solicitanteDefault: $("solicitanteDefault").value.trim() || "OPERATIVO",
+      solicitanteRules: pairsFromLines($("solicitanteRules").value, "→"),
+      secuestro: {
+        enabled: $("secEnabled").value === "1",
+        keyword: $("secKeyword").value.trim() || "secuestr",
+        grupo: $("secGrupo").value.trim() || "OFICIO",
+        tipo: $("secTipo").value.trim() || "SECUESTRO"
+      }
+    };
+  }
+
+  $("profileSelect").addEventListener("change", (e)=>{
+    activeId = e.target.value; setActiveId(activeId);
+    loadProfileIntoForm(getActiveProfile());
   });
 
-  const tbody = document.getElementById("tbody-manifest");
-  const vacio = document.getElementById("vacio");
-  document.getElementById("contador").textContent = `${filtrados.length} de ${expedientes.length} expedientes`;
-
-  if (filtrados.length === 0) {
-    tbody.innerHTML = "";
-    vacio.style.display = "block";
-    return;
-  }
-  vacio.style.display = "none";
-
-  tbody.innerHTML = filtrados.map((e) => `
-    <tr data-id="${escapeHtml(e.id)}">
-      <td class="id-col">${escapeHtml(e.id)}</td>
-      <td>${escapeHtml(e.nombreContacto || "—")}</td>
-      <td>${escapeHtml(e.telefonoContacto || "—")}</td>
-      <td>${escapeHtml(e.articulo || e.tipoArticulo || "—")}</td>
-      <td>${escapeHtml(e.fechaEntrega || "—")}</td>
-      <td><span class="badge-estado ${claseEstado(e.estado)}">${escapeHtml(e.estado || "sin estado")}</span></td>
-    </tr>
-  `).join("");
-
-  tbody.querySelectorAll("tr").forEach((tr) => {
-    tr.addEventListener("click", () => abrirFicha(tr.dataset.id));
+  $("btnNewProfile").addEventListener("click", ()=>{
+    const p = defaultProfile();
+    p.id = uid(); p.name = "Perfil nuevo";
+    profiles.push(p); activeId = p.id; setActiveId(activeId);
+    saveProfiles(profiles); refreshProfileSelect(); loadProfileIntoForm(p);
+    $("advDetails").open = true;
+    toast("Perfil creado");
   });
-}
-
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-}
-
-// ==========================================================================
-// FICHA (panel lateral de edición)
-// ==========================================================================
-const overlay = document.getElementById("overlay");
-const ficha = document.getElementById("ficha");
-
-function abrirFicha(id) {
-  const exp = expedientes.find((e) => String(e.id) === String(id));
-  if (!exp) return;
-  expedienteAbiertoId = id;
-  cambiosPendientes = {};
-  document.getElementById("guardado-msg").textContent = "";
-
-  document.getElementById("ficha-id").textContent = `ID ${exp.id}`;
-
-  document.getElementById("ficha-body").innerHTML = `
-    <div class="seccion-titulo">Datos de legales (solo lectura)</div>
-    <div class="solo-lectura-grid">
-      <div><span class="k">Fecha acta</span><span class="v">${escapeHtml(exp.fechaActa || "—")}</span></div>
-      <div><span class="k">N° acta secuestro</span><span class="v">${escapeHtml(exp.actaSecuestro || "—")}</span></div>
-      <div><span class="k">N° acta comprobación</span><span class="v">${escapeHtml(exp.actaComprobacion || "—")}</span></div>
-      <div><span class="k">N° nota</span><span class="v">${escapeHtml(exp.nNota || "—")}</span></div>
-      <div><span class="k">Fecha ingreso nota</span><span class="v">${escapeHtml(exp.fechaIngresoNota || "—")}</span></div>
-      <div><span class="k">Fecha envío a depósito</span><span class="v">${escapeHtml(exp.fechaEnvioDepo || "—")}</span></div>
-      <div><span class="k">Nombre contacto</span><span class="v">${escapeHtml(exp.nombreContacto || "—")}</span></div>
-      <div><span class="k">Teléfono contacto</span><span class="v">${escapeHtml(exp.telefonoContacto || "—")}</span></div>
-    </div>
-
-    <div class="seccion-titulo">Búsqueda del artículo</div>
-    <div class="campo">
-      <label>¿Se encuentra el artículo?</label>
-      <select data-campo="J">${opcionesSelect(OPCIONES_SE_ENCUENTRA, exp.seEncuentraArticulo)}</select>
-    </div>
-    <div class="campo">
-      <label>Fecha en que se encuentra</label>
-      <input type="date" data-campo="K" value="${exp.fechaSeEncuentra || ""}" />
-    </div>
-
-    <div class="seccion-titulo">Contactos</div>
-    <div class="fila-contacto">
-      <input type="date" data-campo="L" value="${exp.fechaContacto1 || ""}" />
-      <input type="text" data-campo="M" placeholder="Observación contacto 1" value="${escapeHtml(exp.obs1 || "")}" />
-    </div>
-    <div class="fila-contacto">
-      <input type="date" data-campo="N" value="${exp.fechaContacto2 || ""}" />
-      <input type="text" data-campo="O" placeholder="Observación contacto 2" value="${escapeHtml(exp.obs2 || "")}" />
-    </div>
-    <div class="fila-contacto">
-      <input type="date" data-campo="P" value="${exp.fechaContacto3 || ""}" />
-      <input type="text" data-campo="Q" placeholder="Observación contacto 3" value="${escapeHtml(exp.obs3 || "")}" />
-    </div>
-
-    <div class="seccion-titulo">Entrega</div>
-    <div class="campo">
-      <label>Fecha de entrega</label>
-      <input type="date" data-campo="R" value="${exp.fechaEntrega || ""}" />
-    </div>
-    <div class="campo">
-      <label>Tipo de artículo</label>
-      <select data-campo="S">${opcionesSelect(OPCIONES_TIPO_ARTICULO, exp.tipoArticulo)}</select>
-    </div>
-    <div class="campo">
-      <label>Artículo</label>
-      <input type="text" data-campo="T" value="${escapeHtml(exp.articulo || "")}" />
-    </div>
-    <div class="campo">
-      <label>N° de precinto</label>
-      <input type="text" data-campo="U" value="${escapeHtml(exp.nPrecinto || "")}" />
-    </div>
-    <div class="campo">
-      <label>Estado</label>
-      <select data-campo="V">${opcionesSelect(OPCIONES_ESTADO, exp.estado)}</select>
-    </div>
-    <div class="campo">
-      <label>Remito entregado (N° de remito)</label>
-      <input type="text" data-campo="W" value="${escapeHtml(exp.remitoEntregado || "")}" />
-    </div>
-  `;
-
-  document.getElementById("ficha-body").querySelectorAll("[data-campo]").forEach((el) => {
-    el.addEventListener("input", () => {
-      cambiosPendientes[el.dataset.campo] = el.value;
-    });
-    el.addEventListener("change", () => {
-      cambiosPendientes[el.dataset.campo] = el.value;
-    });
+  $("btnDupProfile").addEventListener("click", ()=>{
+    const cur = readProfileFromForm();
+    const copy = JSON.parse(JSON.stringify(cur));
+    copy.id = uid(); copy.name = cur.name + " (copia)";
+    profiles.push(copy); activeId = copy.id; setActiveId(activeId);
+    saveProfiles(profiles); refreshProfileSelect(); loadProfileIntoForm(copy);
+    toast("Perfil duplicado");
+  });
+  $("btnLoadGovna").addEventListener("click", ()=>{
+    const p = govnaManualProfile();
+    profiles.push(p); activeId = p.id; setActiveId(activeId);
+    saveProfiles(profiles); refreshProfileSelect(); loadProfileIntoForm(p);
+    $("advDetails").open = true;
+    toast("Plantilla GOVNA cargada como nuevo perfil — revisala y guardala");
+  });
+  $("btnLoadMovistar").addEventListener("click", ()=>{
+    const p = movistarArenaProfile();
+    profiles.push(p); activeId = p.id; setActiveId(activeId);
+    saveProfiles(profiles); refreshProfileSelect(); loadProfileIntoForm(p);
+    $("advDetails").open = true;
+    toast("Plantilla Movistar Arena cargada como nuevo perfil");
+  });
+  $("btnResetAll").addEventListener("click", ()=>{
+    if(!confirm("Esto borra TODOS los perfiles guardados en este navegador (incluidas tus correcciones y reglas) y arranca de cero con el perfil base del Manual Distrito GOVNA. ¿Confirmás?")) return;
+    try{ localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_ACTIVE); }catch(e){}
+    const p = defaultProfile();
+    profiles = [p]; activeId = p.id; setActiveId(activeId);
+    saveProfiles(profiles); refreshProfileSelect(); loadProfileIntoForm(p);
+    rows = []; skipped = []; chatText = null;
+    $("fileName").textContent = "Ningún archivo cargado";
+    $("mediaCount").textContent = "0 archivos mencionados";
+    renderResults();
+    setStep(1);
+    toast("Perfiles reiniciados — arrancando de cero con el Manual GOVNA");
+  });
+  $("btnDelProfile").addEventListener("click", ()=>{
+    if(profiles.length <= 1){ toast("Necesitás al menos un perfil"); return; }
+    profiles = profiles.filter(p=>p.id!==activeId);
+    activeId = profiles[0].id; setActiveId(activeId);
+    saveProfiles(profiles); refreshProfileSelect(); loadProfileIntoForm(getActiveProfile());
+    toast("Perfil eliminado");
+  });
+  $("btnSaveProfile").addEventListener("click", ()=>{
+    const updated = readProfileFromForm();
+    profiles = profiles.map(p=>p.id===updated.id ? updated : p);
+    saveProfiles(profiles); refreshProfileSelect();
+    toast("Perfil guardado");
+  });
+  $("btnExportProfile").addEventListener("click", ()=>{
+    const p = readProfileFromForm();
+    downloadText(JSON.stringify(p, null, 2), `perfil-${slug(p.name)}.json`, "application/json");
+  });
+  $("btnImportProfile").addEventListener("click", ()=> $("profileFileInput").click());
+  $("profileFileInput").addEventListener("change", (e)=>{
+    const f = e.target.files[0]; if(!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const p = JSON.parse(reader.result);
+        p.id = uid();
+        profiles.push(p); activeId = p.id; setActiveId(activeId);
+        saveProfiles(profiles); refreshProfileSelect(); loadProfileIntoForm(p);
+        toast("Perfil importado");
+      }catch(err){ toast("No se pudo leer ese archivo de perfil"); }
+    };
+    reader.readAsText(f);
   });
 
-  overlay.style.display = "block";
-  ficha.style.right = "0";
-}
+  function slug(s){ return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,""); }
 
-function opcionesSelect(opciones, valorActual) {
-  return `<option value=""></option>` + opciones.map((op) =>
-    `<option value="${escapeHtml(op)}" ${op === valorActual ? "selected" : ""}>${escapeHtml(op)}</option>`
-  ).join("");
-}
-
-function cerrarFicha() {
-  overlay.style.display = "none";
-  expedienteAbiertoId = null;
-  cambiosPendientes = {};
-}
-document.getElementById("cerrar-ficha").addEventListener("click", cerrarFicha);
-overlay.addEventListener("click", cerrarFicha);
-
-// ==========================================================================
-// GUARDAR (Flow 2: actualizar) + log de auditoría en Firestore
-// ==========================================================================
-document.getElementById("btn-guardar").addEventListener("click", async () => {
-  if (!expedienteAbiertoId) return;
-  const msg = document.getElementById("guardado-msg");
-  const btn = document.getElementById("btn-guardar");
-
-  if (Object.keys(cambiosPendientes).length === 0) {
-    msg.textContent = "No hay cambios para guardar.";
-    msg.classList.remove("error");
-    return;
+  // ---------- file upload ----------
+  let chatText = null;
+  const dz = $("dropzone"), fileInput = $("fileInput");
+  dz.addEventListener("click", ()=>fileInput.click());
+  dz.addEventListener("dragover", e=>{ e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", ()=> dz.classList.remove("drag"));
+  dz.addEventListener("drop", e=>{
+    e.preventDefault(); dz.classList.remove("drag");
+    const f = e.dataTransfer.files[0]; if(f) handleFile(f);
+  });
+  fileInput.addEventListener("change", e=>{
+    const f = e.target.files[0]; if(f) handleFile(f);
+  });
+  function handleFile(f){
+    const reader = new FileReader();
+    reader.onload = () => {
+      chatText = reader.result;
+      $("fileName").textContent = f.name + " · " + Math.round(f.size/1024) + " KB";
+      setStep(2);
+      const mediaMatches = chatText.match(/(IMG|VID)-\d+-WA\d+\.(jpg|jpeg|mp4|png)/gi) || [];
+      $("mediaCount").textContent = new Set(mediaMatches).size + " archivos mencionados";
+    };
+    reader.readAsText(f, "utf-8");
   }
 
-  btn.disabled = true;
-  msg.textContent = "Guardando...";
-  msg.classList.remove("error");
-
-  try {
-    const resp = await fetch(URL_ACTUALIZAR, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(CLAVE_INTERNA ? { "x-clave-interna": CLAVE_INTERNA } : {}) },
-      body: JSON.stringify({ id: expedienteAbiertoId, campos: cambiosPendientes }),
-    });
-    const data = await resp.json();
-    if (!resp.ok || data.ok === false) {
-      throw new Error(data.mensaje || "El flow respondió un error.");
+  // ---------- step pills ----------
+  function setStep(n){
+    for(let i=1;i<=4;i++){
+      $("stepPill"+i).classList.toggle("active", i<=n);
     }
+  }
 
-    // Log de auditoría (no bloquea el flujo si falla)
-    try {
-      await addDoc(collection(db, "auditoria_devoluciones"), {
-        expedienteId: expedienteAbiertoId,
-        campos: cambiosPendientes,
-        usuario: auth.currentUser?.email || "desconocido",
-        fecha: serverTimestamp(),
-      });
-    } catch (e) { /* no crítico */ }
+  // ---------- parsing engine ----------
+  const MSG_RE = /^(\d{1,2}\/\d{1,2}\/\d{4}),\s(\d{1,2}:\d{2})(?:\s([ap])\.?\s?m\.?)?\s-\s(?:([^:]+?):\s)?(.*)$/;
+  const ATTACH_RE = /[\u200e]?(IMG|VID)-\d+-WA\d+\.(jpg|jpeg|mp4|png)\s*\(archivo adjunto\)/i;
+  const FILENAME_RE = /(IMG|VID)-\d+-WA\d+\.(jpg|jpeg|mp4|png)/i;
+  const AS_RE = /AS[\s/]*?(\d{4,6})/i;
+  const NUM_ORDEN_RE = /\bS\d{6,9}\/\d{2}\b|\bEX-\d{4}-\d+\b/i;
+  const NARRATIVE_PREFIX = /^(se\s+recorre\s+|se\s+disuade\s+parrilla\s+en\s+|transito\s+\S*\s*|tr[aá]nsito\s+\S*\s*|ya\s+|cerro\s+|corto\s+)+/i;
+  const NARRATIVE_SUFFIX = /\s+sin\s+infractor(es)?\.?$/i;
+  const ADDR_RE = /^[A-Za-zÀ-ÿ.\s]{3,30}\d{1,5}\b|^[A-Za-zÀ-ÿ.\s]{3,30}\sy\s[A-Za-zÀ-ÿ.\s]{3,30}$/i;
 
-    // Actualiza la copia en memoria para que la lista refleje el cambio sin recargar todo
-    const exp = expedientes.find((e) => String(e.id) === String(expedienteAbiertoId));
-    if (exp) {
-      const mapaCampo = { J:"seEncuentraArticulo", K:"fechaSeEncuentra", L:"fechaContacto1", M:"obs1",
-        N:"fechaContacto2", O:"obs2", P:"fechaContacto3", Q:"obs3", R:"fechaEntrega",
-        S:"tipoArticulo", T:"articulo", U:"nPrecinto", V:"estado", W:"remitoEntregado" };
-      for (const letra of Object.keys(cambiosPendientes)) {
-        if (mapaCampo[letra]) exp[mapaCampo[letra]] = cambiosPendientes[letra];
+  function to24h(t, ampm){
+    let [h,m] = t.split(":").map(Number);
+    if(ampm === "p" && h !== 12) h += 12;
+    if(ampm === "a" && h === 12) h = 0;
+    return [h,m];
+  }
+  function weekdayOf(dateStr){
+    const [d,mo,y] = dateStr.split("/").map(Number);
+    return new Date(y, mo-1, d).toLocaleDateString("en-US", {weekday:"long"});
+  }
+  function turnoFor(wd, h){
+    if(wd === "Saturday" || wd === "Sunday"){
+      return (h>=7 && h<19) ? "DIURNO SADOFE" : "NOCTURNO SADOFE";
+    }
+    if(wd === "Friday" && (h>=19 || h<7)) return "NOCTURNO SADOFE";
+    if(h>=7 && h<13) return "TM SEMANA";
+    if(h>=13 && h<19) return "TT SEMANA";
+    return "TN SEMANA";
+  }
+  function canonicalizeAddress(s, profile){
+    if(!s) return s;
+    const par = s.match(/\(([^)]*\d[^)]*)\)/);            // "Plaza de la república (Av Corrientes 1041)"
+    if(par) s = par[1].trim();
+    let s2 = s.replace(NARRATIVE_PREFIX,"").trim();
+    s2 = s2.replace(NARRATIVE_SUFFIX,"").trim();
+    s2 = s2.split(/,\s*(?:a las|ya esta|acompañando)/i)[0].trim();
+    profile.streetFixes.forEach(([pattern, good])=>{
+      const re = safeRegex(pattern, "gi");
+      if(re) s2 = s2.replace(re, good);
+    });
+    s2 = s2.replace(/\bAv\.(\S)/g, "Av. $1").replace(/^av\s+/i, "Av. ");
+    const inter = s2.match(/^(.+?)\s+y\s+(.+?)\s+(\d{1,5})$/i);   // "Lavalle y Pellegrini 500" -> "Pellegrini 500"
+    if(inter) s2 = `${inter[2]} ${inter[3]}`;
+    s2 = s2.replace(/\s+/g," ").trim().replace(/^\.+|\.+$/g,"").trim();
+    const m = s2.match(/^(\d{1,5})\s+([A-Za-zÀ-ÿ.\s]+)$/);
+    if(m && !/\by\b/i.test(s2)){ s2 = `${m[2].trim()} ${m[1]}`; }
+    profile.addressFixes.forEach(([from,to])=>{ if(s2 === from) s2 = to; });
+    return s2;
+  }
+  function looksLikeJunk(s){
+    if(!s) return true;
+    if(s.length > 45) return true;
+    if((s.match(/ /g)||[]).length > 7) return true;
+    if(/[@,:]/.test(s)) return true;
+    if(/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return true;
+    if(/\b(actualizo|comenz|finaliz|policial|inspectiv|coordin|ministerio|equipo|turno|inicio)\b/i.test(s)) return true;
+    return false;
+  }
+
+  // Export de iPhone: [29/9/26, 10:40:56 p. m.] Nombre: texto ‎<adjunto: 00000331-PHOTO-....jpg>
+  const IOS_RE = /^[\u200e\u200f\s]*\[(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*(\d{1,2}:\d{2})(?::(\d{2}))?\s*(?:([ap])\.?\s?m\.?)?\]\s(?:([^:]+?):\s?)?(.*)$/i;
+  const IOS_ATTACH_RE = /[\u200e\u200f\s]*<(?:adjunto|attached):\s*([^>]+?)\s*>/i;
+  const IMG_EXT_RE = /\.(jpe?g|png|webp|heic|gif|bmp)$/i;
+  function fullYear(y){ y = parseInt(y,10); return y < 100 ? 2000 + y : y; }
+  function parseMessages(text){
+    const rawLines = text.split(/\r?\n/);
+    const messages = [];
+    for(const line of rawLines){
+      const ios = line.match(IOS_RE);
+      if(ios){
+        const [, date, time, sec, ap, sender, txt] = ios;
+        const [d, mo, y] = date.split("/");
+        const [h24, mi] = to24h(time, ap ? ap.toLowerCase() : null);
+        messages.push({
+          date: `${d}/${mo}/${fullYear(y)}`,
+          time: `${String(h24).padStart(2,"0")}:${String(mi).padStart(2,"0")}`,
+          ampm: null, sec: sec ? parseInt(sec,10) : 0,
+          sender: sender ? sender.trim() : null, lines: txt ? [txt] : []
+        });
+        continue;
+      }
+      const m = line.match(MSG_RE);
+      if(m){
+        const [, date, time, ampm, sender, txt] = m;
+        messages.push({date, time, ampm, sender: sender?sender.trim():null, lines: txt?[txt]:[]});
+      } else if(messages.length){
+        messages[messages.length-1].lines.push(line);
       }
     }
-
-    msg.textContent = "Cambios guardados correctamente.";
-    renderLista();
-    setTimeout(cerrarFicha, 700);
-  } catch (err) {
-    msg.textContent = "Error al guardar: " + err.message;
-    msg.classList.add("error");
-  } finally {
-    btn.disabled = false;
+    return messages;
   }
-});
+
+  function runParse(){
+    if(!chatText){ toast("Subí un chat primero"); return; }
+    const profile = readProfileFromForm();
+    profiles = profiles.map(p=>p.id===profile.id ? profile : p);
+    saveProfiles(profiles);
+
+    const messages = parseMessages(chatText);
+    const compiledHeaders = profile.contextHeaders.map(h=>({...h, re: safeRegex(h.pattern)}));
+    const advRules = (profile.advancedRules || []).map(r => ({...r, res: (r.keywords||[]).map(k=>safeRegex(k,"i")).filter(Boolean)}));
+    const solicitanteRules = profile.solicitanteRules || [];
+
+    function matchAdvancedRules(caption){
+      for(const r of advRules){
+        if(r.res.length && r.res.every(re => re.test(caption))){
+          return { grupo: r.grupo, tipoServicio: r.tipoServicio, detalleServicio: r.detalleServicio };
+        }
+      }
+      return null;
+    }
+    function computeSolicitante(caption){
+      for(const [kw, val] of solicitanteRules){
+        const re = safeRegex(kw, "i");
+        if(re && re.test(caption)) return val;
+      }
+      return profile.solicitanteDefault || "OPERATIVO";
+    }
+    function extractNumeroOrden(caption){
+      const m = caption.match(NUM_ORDEN_RE);
+      return m ? m[0] : null;
+    }
+
+    let context = null;
+    rows = []; skipped = [];
+
+    for(const msg of messages){
+      const fullText = msg.lines.join("\n").trim();
+
+      let matchedHeader = false;
+      for(const h of compiledHeaders){
+        if(!h.re) continue;
+        const hm = fullText.match(h.re);
+        if(hm){
+          let label = h.label;
+          hm.forEach((g,i)=>{ if(i>0 && g!==undefined) label = label.replace("$"+i, g); });
+          context = { kind: h.kind, label };
+          matchedHeader = true;
+          break;
+        }
+      }
+      if(matchedHeader) continue;
+
+      let iosAtt = null;
+      for(const l of msg.lines){ const mm = l.match(IOS_ATTACH_RE); if(mm){ iosAtt = mm[1].trim(); break; } }
+      if(iosAtt !== null && !IMG_EXT_RE.test(iosAtt)) continue;      // contactos (.vcf), audios, pdf… no son fotos
+      const am = iosAtt !== null ? true : fullText.match(ATTACH_RE);
+      if(!am) continue;
+
+      if(context === null){
+        context = { kind: profile.defaultKind, label: `${profile.defaultKind} ${msg.date} (sin aviso previo)` };
+      }
+      const fnm = fullText.match(FILENAME_RE);
+      const filename = iosAtt !== null ? iosAtt : (fnm ? fnm[0] : null);
+      const captionLines = iosAtt !== null
+        ? msg.lines.map(l => l.replace(IOS_ATTACH_RE, "").replace(/[\u200e\u200f]/g,"").trim())
+        : msg.lines.filter(l => !ATTACH_RE.test(l));
+      const caption = captionLines.filter(l=>l.trim()).join("\n").trim();
+
+      const [h, mi] = msg.ampm === null ? msg.time.split(":").map(Number) : to24h(msg.time, msg.ampm || guessAmPm(msg.time));
+      const wd = weekdayOf(msg.date);
+      const turno = turnoFor(wd, h);
+      const [dd, mm, yy] = msg.date.split("/").map(Number);
+      const ts = new Date(yy, mm-1, dd, h, mi, msg.sec || 0).getTime();
+      const datetime = `${String(dd).padStart(2,"0")}/${String(mm).padStart(2,"0")}/${yy} ${String(h).padStart(2,"0")}:${String(mi).padStart(2,"0")}`;
+      const sender = msg.sender || "";
+
+      if(!caption){
+        skipped.push({date: msg.date, time: msg.time, file: filename, caption: "", reason: "sin texto", sender, ts});
+        continue;
+      }
+
+      // secuestro path
+      if(profile.secuestro.enabled && new RegExp(profile.secuestro.keyword, "i").test(caption)){
+        const asMatch = caption.match(AS_RE);
+        const acta = asMatch ? "AS"+asMatch[1] : null;
+        const precintoCandidates = caption.match(/\b[G]?\d{6,8}\b/g) || [];
+        const precinto = precintoCandidates.length ? precintoCandidates[precintoCandidates.length-1] : null;
+        let addr = null;
+        let acta2 = acta;
+        const stripWords = /\b(se\s+realiza\s+)?secuestro(\s*\(remeras\))?\s*(sobre)?\b/ig;
+        for(const l of caption.split("\n")){
+          const ls = l.trim();
+          if(!ls) continue;
+          if(/^G?\d{6,8}$/i.test(ls)) continue;
+          if(/^AS[\s/]*\d/i.test(ls)) continue;
+          let cleaned = ls.replace(stripWords,"").trim().replace(/^[\s.,:-]+|[\s.,:-]+$/g,"");
+          cleaned = cleaned.replace(/\(remeras\)/i,"").trim();
+          if(cleaned){
+            // a trailing standalone 4-6 digit number stuck on the address line is the
+            // acta code written without "AS" prefix -- split it off
+            const tailM = cleaned.match(/^(.*?)\s+(\d{4,6})$/);
+            if(tailM && !acta2){
+              const cleaned2 = tailM[1].trim();
+              if(cleaned2){ acta2 = "AS"+tailM[2]; cleaned = cleaned2; }
+            }
+            addr = cleaned;
+            break;
+          }
+        }
+        if(!acta2){
+          for(const l of caption.split("\n")){
+            const ls = l.trim();
+            if(/^\d{4,6}$/.test(ls) && ls !== (precinto||"").replace(/^G/,"")){ acta2 = "AS"+ls; break; }
+          }
+        }
+        addr = canonicalizeAddress(addr, profile);
+        rows.push(mkRow({
+          id: uid(), categoria: "SECUESTRO", date: msg.date, time: msg.time, weekday: wd,
+          file: filename, caption, grupo: profile.secuestro.grupo, tipoServicio: profile.secuestro.tipo,
+          detalleServicio: "", codigo: acta2, precinto, numeroOrdenSap: extractNumeroOrden(caption),
+          direccion: addr, solicitante: computeSolicitante(caption), turno,
+          contexto: context.label, sender, ts, datetime, files: filename ? [filename] : []
+        }));
+        continue;
+      }
+
+      // checkpoint / address path
+      let addr = null;
+      for(const l of caption.split("\n")){
+        const ls = l.trim(); if(!ls) continue;
+        if(ADDR_RE.test(ls)){ addr = ls; break; }
+      }
+      if(!addr){
+        for(const l of caption.split("\n")){
+          const ls = l.trim();
+          if(/\d{2,5}\)?\s*$/.test(ls) || /\by\b/i.test(ls)){ addr = ls; break; }
+        }
+      }
+      if(!addr){
+        skipped.push({date: msg.date, time: msg.time, file: filename, caption});
+        continue;
+      }
+
+      let grupo, tipoServicio, detalleServicio = "";
+      const advMatch = matchAdvancedRules(caption);
+      if(advMatch){
+        grupo = advMatch.grupo;
+        tipoServicio = advMatch.tipoServicio;
+        detalleServicio = advMatch.detalleServicio;
+      } else if(context.kind === "EVENTO"){
+        grupo = "EVENTO";
+        tipoServicio = profile.eventoDefaultTipo;
+      } else {
+        grupo = "RELEVAMIENTO";
+        tipoServicio = profile.relevamientoDefaultTipo || "SIN INCIDENCIAS";
+        for(const [kw, tipo] of profile.categorizationRules){
+          if(new RegExp(kw, "i").test(caption)){ tipoServicio = tipo; break; }
+        }
+      }
+
+      addr = canonicalizeAddress(addr, profile);
+      if(!addr || looksLikeJunk(addr)){
+        skipped.push({date: msg.date, time: msg.time, file: filename, caption, reason:"dirección inválida"});
+        continue;
+      }
+
+      rows.push(mkRow({
+        id: uid(), categoria: "CHECKPOINT", date: msg.date, time: msg.time, weekday: wd,
+        file: filename, caption, grupo, tipoServicio, detalleServicio,
+        codigo: null, precinto: null, numeroOrdenSap: extractNumeroOrden(caption),
+        direccion: addr, solicitante: computeSolicitante(caption), turno, contexto: context.label,
+        sender, ts, datetime, files: filename ? [filename] : []
+      }));
+    }
+
+    // Fotos sin texto: se asocian a la incidencia (mismo remitente) más cercana en el tiempo,
+    // dentro de la ventana configurada. WhatsApp exporta cada foto de un envío múltiple como un
+    // mensaje aparte y el texto suele venir solo en una de ellas.
+    const winMs = Math.max(0, parseInt($("photoWindow").value, 10) || 0) * 60000;
+    let attached = 0;
+    skipped = skipped.filter(sk => {
+      if(sk.reason !== "sin texto" || !sk.file) return true;
+      let best = null, bestD = Infinity;
+      for(const r of rows){
+        if((r.sender||"") !== (sk.sender||"")) continue;
+        const d = Math.abs(r.ts - sk.ts);
+        if(d <= winMs && d < bestD){ best = r; bestD = d; }
+      }
+      if(!best) return true;
+      if(!best.files.includes(sk.file)) best.files.push(sk.file);
+      attached++;
+      return false;
+    });
+    rows.forEach(r => r.files.sort());
+    renderResults();
+    setStep(rows.length ? 4 : 3);
+    $("parseStatus").textContent = `${rows.length} incidencias detectadas (${attached} fotos extra agrupadas por horario), ${skipped.length} mensajes con foto sin asociar.`;
+    toast("Conversión completa");
+  }
+
+  function guessAmPm(time){
+    const h = parseInt(time.split(":")[0],10);
+    return h < 12 ? "a" : "p";
+  }
+  function safeRegex(pattern, flags){
+    try{ return new RegExp(pattern, flags || "i"); }catch(e){ return null; }
+  }
+  function mkRow(r){
+    r.estado = r.direccion ? "OK" : "REVISAR";
+    return r;
+  }
+
+  // ---------- results table ----------
+  function renderResults(){
+    const body = $("resultsBody");
+    body.innerHTML = "";
+    if(!rows.length){
+      body.innerHTML = `<tr><td colspan="12"><div class="empty">Sin resultados todavía.</div></td></tr>`;
+    }
+    rows.forEach(r=>{
+      const tr = document.createElement("tr");
+      tr.className = r.estado === "OK" ? "" : "row-warn";
+      const codeParts = [r.codigo, r.precinto, r.numeroOrdenSap].filter(Boolean);
+      tr.innerHTML = `
+        <td class="num">${r.date}</td>
+        <td class="num">${r.time}</td>
+        <td><span class="pill ${r.categoria==='SECUESTRO'?'bad':'ok'}">${r.categoria}</span></td>
+        <td><input type="text" data-f="grupo" value="${escAttr(r.grupo)}" /></td>
+        <td><input type="text" data-f="tipoServicio" value="${escAttr(r.tipoServicio)}" /></td>
+        <td><input type="text" data-f="detalleServicio" value="${escAttr(r.detalleServicio||'')}" /></td>
+        <td><input type="text" data-f="direccion" value="${escAttr(r.direccion||'')}" style="min-width:170px" /></td>
+        <td class="num">${escHtml(codeParts.join(" / "))}</td>
+        <td class="file-cell" title="${escAttr((r.files||[]).join(', '))}">${(r.files||[]).length ? (r.files.length + ' foto' + (r.files.length>1?'s':'')) : '—'}</td>
+        <td class="caption-cell">${escHtml(r.caption)}</td>
+        <td>${r.estado==='OK' ? '<span class="pill ok">OK</span>' : '<span class="pill warn">REVISAR</span>'}</td>
+        <td><button class="small ghost danger" data-del="1">✕</button></td>
+      `;
+      tr.querySelectorAll("input[data-f]").forEach(inp=>{
+        inp.addEventListener("input", ()=>{
+          r[inp.dataset.f] = inp.value;
+          if(inp.dataset.f === "direccion"){
+            r.estado = inp.value.trim() ? "OK" : "REVISAR";
+            tr.className = r.estado === "OK" ? "" : "row-warn";
+            tr.children[10].innerHTML = r.estado==='OK' ? '<span class="pill ok">OK</span>' : '<span class="pill warn">REVISAR</span>';
+          }
+        });
+      });
+      tr.querySelector("[data-del]").addEventListener("click", ()=>{
+        rows = rows.filter(x=>x.id!==r.id);
+        renderResults();
+      });
+      body.appendChild(tr);
+    });
+    renderSkipped();
+    updateStats();
+  }
+
+  function renderSkipped(){
+    const el = $("skippedList");
+    if(!skipped.length){ el.innerHTML = `<div class="empty" style="padding:16px;">Nada por ahora.</div>`; return; }
+    el.innerHTML = "";
+    skipped.forEach(s=>{
+      const div = document.createElement("div");
+      div.className = "skipped-item";
+      div.innerHTML = `<span class="when mono">${s.date} ${s.time}</span><span class="cap">${escHtml(s.caption || '(sin texto)')} ${s.reason?`<em style="color:var(--text-faint)">— ${escHtml(s.reason)}</em>`:''}</span>`;
+      el.appendChild(div);
+    });
+  }
+
+  function updateStats(){
+    $("statTotal").textContent = rows.length;
+    $("statAddr").textContent = rows.filter(r=>r.direccion).length;
+    $("statSkipped").textContent = skipped.length;
+    $("statSecuestro").textContent = rows.filter(r=>r.categoria==='SECUESTRO').length;
+    $("statFotos").textContent = rows.filter(r=>(r.files||[]).length).length;
+    $("rowCountHint").textContent = rows.length + " filas";
+  }
+
+  function escHtml(s){ return String(s??"").replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+  function escAttr(s){ return escHtml(s).replace(/"/g,"&quot;"); }
+
+  // ---------- export: sin capacidades especiales (para que la página sea pública).
+  // Se muestra el contenido para copiarlo o bajarlo; no usa la descarga directa de Claude.
+  const downloadsReady = Promise.resolve();
+  const downloadsApi = null;
+
+  // Respaldo cuando "downloads" no está disponible (otra cuenta, vista sin permiso, formato no habilitado):
+  // se muestra el contenido para copiarlo al portapapeles o bajarlo con un enlace.
+  function showFallback(text, filename, mime, motivo){
+    let ov = document.getElementById("dlFallback");
+    if(ov) ov.remove();
+    ov = document.createElement("div");
+    ov.id = "dlFallback";
+    ov.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px";
+    const box = document.createElement("div");
+    box.style.cssText = "background:var(--surface,#fff);color:var(--text,#1c231f);max-width:720px;width:100%;max-height:90vh;display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.4);font:14px/1.4 system-ui,sans-serif";
+    const h = document.createElement("div");
+    h.style.cssText = "font-weight:700";
+    h.textContent = filename;
+    const m = document.createElement("div");
+    m.style.cssText = "font-size:12.5px;opacity:.8";
+    m.textContent = (motivo ? motivo + " " : "") + "Tocá \"Copiar contenido\" y pegalo en el panel de carga de Urbetrack (botón \"Pegar datos…\"). Si preferís un archivo, pegalo en un bloc de notas y guardalo como " + filename + ".";
+    const ta = document.createElement("textarea");
+    ta.readOnly = true; ta.value = text;
+    ta.style.cssText = "flex:1;min-height:220px;font:12px/1.4 ui-monospace,Consolas,monospace;padding:8px;border:1px solid #9aa;border-radius:8px;background:transparent;color:inherit";
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end";
+    const mk = (label, fn, primary)=>{
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = label;
+      b.style.cssText = "padding:7px 14px;border-radius:8px;border:1px solid #0f6e5c;cursor:pointer;font:inherit;" + (primary ? "background:#0f6e5c;color:#fff" : "background:transparent;color:inherit");
+      b.addEventListener("click", fn);
+      return b;
+    };
+    row.append(
+      mk("Copiar contenido", async ()=>{
+        try{ await navigator.clipboard.writeText(text); toast("Copiado al portapapeles"); }
+        catch(e){ ta.select(); try{ document.execCommand("copy"); toast("Copiado"); }catch(e2){ toast("Seleccioná el texto y copialo con Ctrl+C"); } }
+      }, true),
+      mk("Cerrar", ()=>ov.remove())
+    );
+    box.append(h, m, ta, row);
+    ov.appendChild(box);
+    ov.addEventListener("click", e=>{ if(e.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
+    ta.focus(); ta.select();
+  }
+
+  function saveBlob(blob, filename){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  }
+  async function downloadText(text, filename, mime){
+    try{
+      const bom = /\.csv$/i.test(filename) ? "\ufeff" : "";
+      saveBlob(new Blob([bom + text], {type: (mime||"text/plain") + ";charset=utf-8"}), filename);
+      toast("Descargando: " + filename);
+      return true;
+    }catch(err){
+      showFallback(text, filename, mime, "No se pudo descargar directamente.");
+      return false;
+    }
+  }
+
+  $("btnParse").addEventListener("click", runParse);
+
+  $("btnExportJson").addEventListener("click", async ()=>{
+    if(!rows.length){ toast("No hay filas para exportar"); return; }
+    const out = rows.map(r=>({
+      categoria: r.categoria, date: r.date, time: r.time, weekday: r.weekday,
+      file: r.file, caption: r.caption, grupo: r.grupo, tipo_servicio: r.tipoServicio,
+      detalle_servicio: r.detalleServicio || null,
+      codigo: r.codigo, precinto: r.precinto, numero_orden_sap: r.numeroOrdenSap || null,
+      direccion: r.direccion, solicitante: r.solicitante, turno: r.turno, contexto: r.contexto,
+      files: r.files || (r.file ? [r.file] : []), datetime: r.datetime || null, sender: r.sender || null
+    }));
+    await downloadText(JSON.stringify(out, null, 2), `records-${slug(getActiveProfile().name)}-${todayStr()}.json`, "application/json");
+  });
+
+  $("btnExportCsv").addEventListener("click", async ()=>{
+    if(!rows.length){ toast("No hay filas para exportar"); return; }
+    const cols = ["categoria","date","time","datetime","weekday","files","caption","grupo","tipoServicio","detalleServicio","codigo","precinto","numeroOrdenSap","direccion","solicitante","turno","contexto","estado"];
+    const esc = (v)=> `"${String(v??"").replace(/"/g,'""')}"`;
+    const lines = [cols.join(",")].concat(rows.map(r=> cols.map(c=>esc(c==="files" ? (r.files||[]).join("|") : r[c])).join(",")));
+    await downloadText(lines.join("\n"), `records-${slug(getActiveProfile().name)}-${todayStr()}.csv`, "text/csv");
+  });
+
+  // Catálogo de Urbetrack (GOVNA) para los desplegables del Excel
+  const CATALOGO_UB = {"catalogo": {"AGRESION": {"AGRESION": ["AGRESION"]}, "CONSULTA FISCALIA": {"AGRESION": ["DIO CURSO", "NO DIO CURSO"], "ARMA BLANCA": ["DIO CURSO", "NO DIO CURSO"], "ENTORPECER": ["DIO CURSO", "NO DIO CURSO"], "OTROS": ["DIO CURSO", "NO DIO CURSO"], "RESISTENCIA": ["DIO CURSO", "NO DIO CURSO"]}, "DERIVADO": {"DERIVADO": ["FERIAS", "HIGIENE", "ORDENAMIENTO", "OTROS"]}, "DESALOJO": {"NO VA AL DEPOSITO": ["NO VA AL DEPOSITO"], "VA AL DEPOSITO": ["DEPOSITO CASTAÑARES", "DEPOSITO PEDRO DE MENDOZA"]}, "EVENTO": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "FOOD TRUCK", "MANTERO", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"]}, "OFICIO": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL", "MANTERO"], "INTIMACION": ["COMERCIO", "COMIDA ARTESANAL", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL"], "SUSPENDIDO": ["FALTA APOYO POLICIAL", "VECINO ENTORPECE PROCEDIMIENTO"]}, "PARTIDO DE FUTBOL": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL", "MANTERO"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "COMIDA ARTESANAL", "PARRILLA", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"]}, "HOJA DE RUTA": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE", "MANTERO"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"]}, "PUNTO CRONICO": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL", "MANTERO"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"], "SUSPENDIDO": ["FALTA APOYO POLICIAL"]}, "RECLAMO": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL", "MANTERO"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"], "SUSPENDIDO": ["FALTA APOYO POLICIAL", "VECINO ENTORPECE PROCEDIMIENTO"]}, "SAME": {"SAME": ["SAME"]}, "FUERA DE OPERATORIA": {"ORDENAMIENTO": ["ORDENAMIENTO"], "GOIEP": ["GOIEP"], "LOGISTICA": ["LOGISTICA"], "GOCHU": ["GOCHU"], "ORDEN PUBLICO": ["ORDEN PUBLICO"]}, "RELEVAMIENTO": {"MANTERO": ["MANTERO"], "PARRILLA": ["PARRILLA"], "PUESTO SIN PERMISO": ["PUESTO SIN PERMISO"], "PUESTO CON PERMISO": ["PUESTO CON PERMISO"], "VENDEDOR AMBULANTE": ["VENDEDOR AMBULANTE"], "FOOD TRUCK": ["FOOD TRUCK"], "ARTESANO": ["ARTESANO"], "SIN INCIDENCIAS": ["SIN INCIDENCIAS"], "DERIVADO": ["HIGIENE", "ORDENAMIENTO", "TRANSITO"]}}, "solicitante": ["POLIGONO", "PATRULLA", "OPERATIVO"], "plazo": ["TM SEMANA", "TT SEMANA", "TN SEMANA", "DIURNO SADOFE", "NOCTURNO SADOFE"]};
+
+  $("btnExportXlsx").addEventListener("click", async ()=>{
+    if(!rows.length){ toast("No hay filas para exportar"); return; }
+    if(typeof ExcelJS === "undefined"){ toast("No se cargó la librería de Excel. Probá con CSV."); return; }
+    const cols = ["categoria","date","time","datetime","weekday","files","caption","grupo","tipoServicio","detalleServicio","codigo","precinto","numeroOrdenSap","direccion","solicitante","turno","contexto","estado"];
+    const L = n => { let s=""; n++; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26);} return s; };
+    const col = c => L(cols.indexOf(c));
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Incidencias", {views:[{state:"frozen", ySplit:1}]});
+    const li = wb.addWorksheet("Listas", {state:"hidden"});
+    // ---- hoja oculta con las listas
+    const cat = CATALOGO_UB.catalogo;
+    const grupos = Object.keys(cat);
+    grupos.forEach((g,i)=>{ li.getCell("A"+(i+1)).value = g; });
+    let rt = 1, rd = 1;
+    grupos.forEach(g=>{
+      Object.keys(cat[g]).forEach(t=>{
+        li.getCell("C"+rt).value = g; li.getCell("D"+rt).value = t; rt++;
+        cat[g][t].forEach(d=>{ li.getCell("F"+rd).value = g+"|"+t; li.getCell("G"+rd).value = d; rd++; });
+      });
+    });
+    CATALOGO_UB.solicitante.forEach((v,i)=>{ li.getCell("I"+(i+1)).value = v; });
+    CATALOGO_UB.plazo.forEach((v,i)=>{ li.getCell("J"+(i+1)).value = v; });
+    // ---- datos
+    ws.addRow(cols);
+    rows.forEach(r=> ws.addRow(cols.map(c=> c==="files" ? (r.files||(r.file?[r.file]:[])).join("|") : (r[c]==null ? "" : r[c]))));
+    const head = ws.getRow(1);
+    head.font = {bold:true, color:{argb:"FFFFFFFF"}};
+    head.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FF0F6E5C"}};
+    cols.forEach((c,i)=>{ ws.getColumn(i+1).width = ["caption","files","contexto","direccion"].includes(c) ? 40 : (["grupo","tipoServicio","detalleServicio","turno"].includes(c) ? 22 : 15); });
+    ["grupo","tipoServicio","detalleServicio","solicitante","turno"].forEach(c=>{ ws.getCell(col(c)+"1").fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FF1D4ED8"}}; });
+    // ---- desplegables (filas con datos + 300 de margen para agregar)
+    const last = rows.length + 1 + 300;
+    const gc = col("grupo"), tc = col("tipoServicio");
+    const base = (extra)=>Object.assign({type:"list", allowBlank:true, showErrorMessage:true, errorStyle:"warning", errorTitle:"Valor fuera del catálogo", error:"Ese valor no está en el catálogo de Urbetrack. ¿Usarlo igual?"}, extra);
+    for(let r=2; r<=last; r++){
+      ws.getCell(gc+r).dataValidation = base({formulae:["Listas!$A$1:$A$"+grupos.length]});
+      ws.getCell(tc+r).dataValidation = base({formulae:[`IFERROR(OFFSET(Listas!$D$1,MATCH($${gc}${r},Listas!$C$1:$C$${rt},0)-1,0,COUNTIF(Listas!$C$1:$C$${rt},$${gc}${r}),1),Listas!$L$1)`]});
+      ws.getCell(col("detalleServicio")+r).dataValidation = base({formulae:[`IFERROR(OFFSET(Listas!$G$1,MATCH($${gc}${r}&"|"&$${tc}${r},Listas!$F$1:$F$${rd},0)-1,0,COUNTIF(Listas!$F$1:$F$${rd},$${gc}${r}&"|"&$${tc}${r}),1),Listas!$L$1)`]});
+      ws.getCell(col("solicitante")+r).dataValidation = base({formulae:["Listas!$I$1:$I$"+CATALOGO_UB.solicitante.length]});
+      ws.getCell(col("turno")+r).dataValidation = base({formulae:["Listas!$J$1:$J$"+CATALOGO_UB.plazo.length]});
+    }
+    const buf = await wb.xlsx.writeBuffer();
+    saveBlob(new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}), `records-${slug(getActiveProfile().name)}-${todayStr()}.xlsx`);
+    toast("Descargando Excel con desplegables");
+  });
+
+  function todayStr(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  // ---------- init ----------
+  refreshProfileSelect();
+  loadProfileIntoForm(getActiveProfile());
+  setStep(1);
+})();
 </script>
+
 </body>
 </html>
