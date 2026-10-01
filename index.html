@@ -483,6 +483,10 @@
 (function(){
   "use strict";
 
+  // Catálogo de Urbetrack (GOVNA) para los desplegables del Excel
+  const CATALOGO_UB = {"catalogo": {"AGRESION": {"AGRESION": ["AGRESION"]}, "CONSULTA FISCALIA": {"AGRESION": ["DIO CURSO", "NO DIO CURSO"], "ARMA BLANCA": ["DIO CURSO", "NO DIO CURSO"], "ENTORPECER": ["DIO CURSO", "NO DIO CURSO"], "OTROS": ["DIO CURSO", "NO DIO CURSO"], "RESISTENCIA": ["DIO CURSO", "NO DIO CURSO"]}, "DERIVADO": {"DERIVADO": ["FERIAS", "HIGIENE", "ORDENAMIENTO", "OTROS"]}, "DESALOJO": {"NO VA AL DEPOSITO": ["NO VA AL DEPOSITO"], "VA AL DEPOSITO": ["DEPOSITO CASTAÑARES", "DEPOSITO PEDRO DE MENDOZA"]}, "EVENTO": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "FOOD TRUCK", "MANTERO", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"]}, "OFICIO": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL", "MANTERO"], "INTIMACION": ["COMERCIO", "COMIDA ARTESANAL", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL"], "SUSPENDIDO": ["FALTA APOYO POLICIAL", "VECINO ENTORPECE PROCEDIMIENTO"]}, "PARTIDO DE FUTBOL": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL", "MANTERO"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "COMIDA ARTESANAL", "PARRILLA", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"]}, "HOJA DE RUTA": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE", "MANTERO"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"]}, "PUNTO CRONICO": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL", "MANTERO"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"], "SUSPENDIDO": ["FALTA APOYO POLICIAL"]}, "RECLAMO": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL", "MANTERO"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"], "SUSPENDIDO": ["FALTA APOYO POLICIAL", "VECINO ENTORPECE PROCEDIMIENTO"]}, "SAME": {"SAME": ["SAME"]}, "FUERA DE OPERATORIA": {"ORDENAMIENTO": ["ORDENAMIENTO"], "GOIEP": ["GOIEP"], "LOGISTICA": ["LOGISTICA"], "GOCHU": ["GOCHU"], "ORDEN PUBLICO": ["ORDEN PUBLICO"]}, "RELEVAMIENTO": {"MANTERO": ["MANTERO"], "PARRILLA": ["PARRILLA"], "PUESTO SIN PERMISO": ["PUESTO SIN PERMISO"], "PUESTO CON PERMISO": ["PUESTO CON PERMISO"], "VENDEDOR AMBULANTE": ["VENDEDOR AMBULANTE"], "FOOD TRUCK": ["FOOD TRUCK"], "ARTESANO": ["ARTESANO"], "SIN INCIDENCIAS": ["SIN INCIDENCIAS"], "DERIVADO": ["HIGIENE", "ORDENAMIENTO", "TRANSITO"]}}, "solicitante": ["POLIGONO", "PATRULLA", "OPERATIVO"], "plazo": ["TM SEMANA", "TT SEMANA", "TN SEMANA", "DIURNO SADOFE", "NOCTURNO SADOFE"]};
+
+
   // ---------- persistence ----------
   const LS_KEY = "wa_urbetrack_profiles_v1";
   const LS_ACTIVE = "wa_urbetrack_active_profile_v1";
@@ -1169,9 +1173,9 @@
         <td class="num">${r.date}</td>
         <td class="num">${r.time}</td>
         <td><span class="pill ${r.categoria==='SECUESTRO'?'bad':'ok'}">${r.categoria}</span></td>
-        <td><input type="text" data-f="grupo" value="${escAttr(r.grupo)}" /></td>
-        <td><input type="text" data-f="tipoServicio" value="${escAttr(r.tipoServicio)}" /></td>
-        <td><input type="text" data-f="detalleServicio" value="${escAttr(r.detalleServicio||'')}" /></td>
+        <td><select data-f="grupo"></select></td>
+        <td><select data-f="tipoServicio"></select></td>
+        <td><select data-f="detalleServicio"></select></td>
         <td><input type="text" data-f="direccion" value="${escAttr(r.direccion||'')}" style="min-width:170px" /></td>
         <td class="num">${escHtml(codeParts.join(" / "))}</td>
         <td class="file-cell" title="${escAttr((r.files||[]).join(', '))}">${(r.files||[]).length ? (r.files.length + ' foto' + (r.files.length>1?'s':'')) : '—'}</td>
@@ -1179,6 +1183,29 @@
         <td>${r.estado==='OK' ? '<span class="pill ok">OK</span>' : '<span class="pill warn">REVISAR</span>'}</td>
         <td><button class="small ghost danger" data-del="1">✕</button></td>
       `;
+      const selG = tr.querySelector('select[data-f="grupo"]'), selT = tr.querySelector('select[data-f="tipoServicio"]'), selD = tr.querySelector('select[data-f="detalleServicio"]');
+      const fill = (sel, list, cur, blank)=>{
+        const items = list.slice();
+        const has = items.some(x=>x.toUpperCase()===String(cur||"").trim().toUpperCase());
+        sel.innerHTML = "";
+        if(blank || !cur){ const o=document.createElement("option"); o.value=""; o.textContent="—"; sel.appendChild(o); }
+        if(cur && !has){ items.unshift(cur); }
+        items.forEach(x=>{ const o=document.createElement("option"); o.value=x; o.textContent = (cur && !has && x===cur) ? x+" (fuera de catálogo)" : x; sel.appendChild(o); });
+        sel.value = cur || "";
+        if(cur && has){ const hit = items.find(x=>x.toUpperCase()===String(cur).trim().toUpperCase()); sel.value = hit; }
+      };
+      const cat = CATALOGO_UB.catalogo;
+      const refill = ()=>{
+        fill(selG, Object.keys(cat), r.grupo, false);
+        const gk = Object.keys(cat).find(k=>k.toUpperCase()===String(r.grupo||"").trim().toUpperCase());
+        fill(selT, gk ? Object.keys(cat[gk]) : [], r.tipoServicio, true);
+        const tk = gk ? Object.keys(cat[gk]).find(k=>k.toUpperCase()===String(r.tipoServicio||"").trim().toUpperCase()) : null;
+        fill(selD, (gk && tk) ? cat[gk][tk] : [], r.detalleServicio, true);
+      };
+      refill();
+      selG.addEventListener("change", ()=>{ r.grupo = selG.value; r.tipoServicio = ""; r.detalleServicio = ""; refill(); });
+      selT.addEventListener("change", ()=>{ r.tipoServicio = selT.value; r.detalleServicio = ""; refill(); });
+      selD.addEventListener("change", ()=>{ r.detalleServicio = selD.value; });
       tr.querySelectorAll("input[data-f]").forEach(inp=>{
         inp.addEventListener("input", ()=>{
           r[inp.dataset.f] = inp.value;
@@ -1311,9 +1338,6 @@
     const lines = [cols.join(",")].concat(rows.map(r=> cols.map(c=>esc(c==="files" ? (r.files||[]).join("|") : r[c])).join(",")));
     await downloadText(lines.join("\n"), `records-${slug(getActiveProfile().name)}-${todayStr()}.csv`, "text/csv");
   });
-
-  // Catálogo de Urbetrack (GOVNA) para los desplegables del Excel
-  const CATALOGO_UB = {"catalogo": {"AGRESION": {"AGRESION": ["AGRESION"]}, "CONSULTA FISCALIA": {"AGRESION": ["DIO CURSO", "NO DIO CURSO"], "ARMA BLANCA": ["DIO CURSO", "NO DIO CURSO"], "ENTORPECER": ["DIO CURSO", "NO DIO CURSO"], "OTROS": ["DIO CURSO", "NO DIO CURSO"], "RESISTENCIA": ["DIO CURSO", "NO DIO CURSO"]}, "DERIVADO": {"DERIVADO": ["FERIAS", "HIGIENE", "ORDENAMIENTO", "OTROS"]}, "DESALOJO": {"NO VA AL DEPOSITO": ["NO VA AL DEPOSITO"], "VA AL DEPOSITO": ["DEPOSITO CASTAÑARES", "DEPOSITO PEDRO DE MENDOZA"]}, "EVENTO": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "FOOD TRUCK", "MANTERO", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"]}, "OFICIO": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL", "MANTERO"], "INTIMACION": ["COMERCIO", "COMIDA ARTESANAL", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL"], "SUSPENDIDO": ["FALTA APOYO POLICIAL", "VECINO ENTORPECE PROCEDIMIENTO"]}, "PARTIDO DE FUTBOL": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL", "MANTERO"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "COMIDA ARTESANAL", "PARRILLA", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"]}, "HOJA DE RUTA": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE", "MANTERO"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"]}, "PUNTO CRONICO": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL", "MANTERO"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"], "SUSPENDIDO": ["FALTA APOYO POLICIAL"]}, "RECLAMO": {"COMPROBACION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE"], "DISUASION": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "PUESTO DE VENTA AMBULANTE", "COMIDA ARTESANAL", "MANTERO"], "INTIMACION": ["COMERCIO", "FOOD TRUCK", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "SECUESTRO": ["ARTESANO", "COMERCIO", "FOOD TRUCK", "MANTERO", "PARRILLA", "COMIDA ARTESANAL", "PUESTO DE VENTA AMBULANTE"], "RELEVAMIENTO": ["SIN INCIDENCIAS"], "SUSPENDIDO": ["FALTA APOYO POLICIAL", "VECINO ENTORPECE PROCEDIMIENTO"]}, "SAME": {"SAME": ["SAME"]}, "FUERA DE OPERATORIA": {"ORDENAMIENTO": ["ORDENAMIENTO"], "GOIEP": ["GOIEP"], "LOGISTICA": ["LOGISTICA"], "GOCHU": ["GOCHU"], "ORDEN PUBLICO": ["ORDEN PUBLICO"]}, "RELEVAMIENTO": {"MANTERO": ["MANTERO"], "PARRILLA": ["PARRILLA"], "PUESTO SIN PERMISO": ["PUESTO SIN PERMISO"], "PUESTO CON PERMISO": ["PUESTO CON PERMISO"], "VENDEDOR AMBULANTE": ["VENDEDOR AMBULANTE"], "FOOD TRUCK": ["FOOD TRUCK"], "ARTESANO": ["ARTESANO"], "SIN INCIDENCIAS": ["SIN INCIDENCIAS"], "DERIVADO": ["HIGIENE", "ORDENAMIENTO", "TRANSITO"]}}, "solicitante": ["POLIGONO", "PATRULLA", "OPERATIVO"], "plazo": ["TM SEMANA", "TT SEMANA", "TN SEMANA", "DIURNO SADOFE", "NOCTURNO SADOFE"]};
 
   $("btnExportXlsx").addEventListener("click", async ()=>{
     if(!rows.length){ toast("No hay filas para exportar"); return; }
