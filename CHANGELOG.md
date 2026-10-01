@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.7.0
+- Guardado más rápido: después de Guardar sigue apenas Urbetrack avisa que guardó (abre/cierra ventana), aparece el N° o las fotos salen de la lista, en vez de esperar la recarga (revisa cada 1/4 s; tope 150 s con fotos, 20 s sin fotos).
+- Las filas sin fotos ya no frenan la corrida después de guardar.
+- El log anota cuánto tardó cada fila y cada guardado.
+- Espera menos en los combos que no recargan el formulario.
+
 ## 0.5.1
 - Link "Abrir conversor" en el panel.
 

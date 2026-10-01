@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Urbetrack – Carga automática desde WhatsApp (GOVNA)
 // @namespace    dgfis-govna
-// @version      0.6.5
+// @version      0.7.0
 // @description  Carga incidencias en "Nueva incidencia" de Urbetrack a partir del JSON del conversor WhatsApp → Urbetrack, incluyendo fotos.
 // @match        https://gcaba.urbetrack.com/HigieneUrbana/Soporte/Default.aspx*
 // @run-at       document-idle
@@ -90,7 +90,7 @@
       el.dispatchEvent(new Event('change', { bubbles: true }));
       if (el.tagName !== 'SELECT') el.blur();
       if (!autoPostBack) { setTimeout(finish, 60); return; }        // campo de texto sin postback: no esperar
-      setTimeout(function () { if (!started) finish(); }, 1400);   // no hubo postback
+      setTimeout(function () { if (!started) finish(); }, 800);    // no hubo postback (el postback arranca enseguida si lo hay)
       setTimeout(finish, 30000);                                   // tope
     }).then(function (err) { return sleep(250).then(function () { return err; }); });
   }
@@ -118,12 +118,13 @@
   }
 
   // ------------------------------------------------------------------ guardas (window.open/close/alert/confirm)
-  var guard = { alerts: [], orig: null };
+  var guard = { alerts: [], saved: [], orig: null };
   function installGuards() {
     if (guard.orig) return;
     guard.orig = { open: window.open, close: window.close, alert: window.alert, confirm: window.confirm };
-    window.open = function () { return null; };                 // "Guardar" abre una pestaña nueva con Default.aspx
-    window.close = function () { };                             // onGuardado() cierra la ventana
+    // Al guardar bien, Urbetrack (onGuardado) abre una pestaña nueva con Default.aspx y cierra esta: se anotan como señal de guardado.
+    window.open = function (u) { guard.saved.push('open ' + (u || '')); return null; };
+    window.close = function () { guard.saved.push('close'); };
     window.alert = function (m) { guard.alerts.push('alert: ' + m); };
     window.confirm = function (m) {
       guard.alerts.push('confirm: ' + m);
@@ -477,7 +478,7 @@
   }
 
   async function processRow(idx) {
-    var r = state.rows[idx], key = rowKey(r);
+    var r = state.rows[idx], key = rowKey(r), tRow = Date.now();
     log(idx, 'trabajando', 'completando formulario…');
     guard.alerts = [];
     await clearPending();          // por si quedó algún archivo suelto de una prueba anterior
@@ -523,31 +524,42 @@
       if (!pendingOk(myNames)) throw new Error('Antes de guardar, la lista de fotos no coincide con las de esta fila: ' + pendingNames().join(', '));
     }
     sessionStorage.setItem('ub_carga_pending', JSON.stringify({ key: key, fila: idx + 1, t: Date.now() }));
+    guard.saved = [];
+    var tSave = Date.now();
     var res = await clickAndWait($id('btGuardar'), 6000);
     var info = infoText();
     if (!res.started) throw new Error('El guardado no arrancó (validación del formulario). ' + guard.alerts.join(' | ') + ' ' + info + ' · Página dice: ' + (problemasVisibles() || 'nada visible'));
     if (res.error) throw new Error('Error del servidor al guardar: ' + res.error);
-    var id = readIncidentId();
-    // Guardar hace un postback completo: la página se recarga y este script termina ahí (se retoma en resumeAfterReload).
-    // Se espera a que eso pase, en vez de dar un error por apurarse y tocar el formulario mientras se guarda.
-    if (!id) {
-      // El guardado puede tardar más de lo esperado (geocodificación, fotos): se espera hasta 150 s a que aparezca el N° o la página se recargue.
-      for (var w = 0; w < 150 && !id; w++) { await sleep(1000); id = readIncidentId(); if (!id && pendingNames().length === 0) break; }
+    // Señales de que se guardó: N° de incidencia, aviso de Urbetrack (abre/cierra ventana) o, si había fotos, que salgan de la lista de pendientes.
+    // Si Urbetrack recarga la página, este script termina acá y se retoma en resumeAfterReload.
+    // Se revisa cada 1/4 s para seguir apenas haya señal; el tope es 150 s con fotos y 20 s sin fotos.
+    var id = '', how = '', tope = files.length ? 150000 : 20000;
+    while (true) {
+      id = readIncidentId();
+      if (id) { how = 'N° de incidencia'; break; }
+      if (guard.saved.length) { how = 'aviso de Urbetrack'; break; }
+      if (files.length && pendingNames().length === 0) { how = 'fotos asociadas'; break; }
+      if (Date.now() - tSave > tope) break;
+      await sleep(250);
     }
-    var stillPending = pendingNames().length;
-    if (!id && stillPending) {
-      // Sin ID y con fotos todavía pendientes: no hay evidencia de que se haya guardado.
-      throw new Error('No hay señal de que se haya guardado (sin N° de incidencia y las fotos siguen pendientes). Info: ' + info + ' ' + guard.alerts.join(' | ') + ' · Página dice: ' + (problemasVisibles() || 'nada visible'));
+    var secs = function (t) { return Math.round((Date.now() - t) / 1000) + ' s'; };
+    var tiempos = 'fila ' + secs(tRow) + ', guardado ' + secs(tSave);
+    if (!how && files.length) {
+      throw new Error('No hay señal de que se haya guardado (sin N° de incidencia y las fotos siguen pendientes, ' + secs(tSave) + '). Info: ' + info + ' ' + guard.alerts.join(' | ') + ' · Página dice: ' + (problemasVisibles() || 'nada visible'));
     }
     done[key] = { id: id || '?', t: Date.now() }; lsSet(LS_DONE, done);
-    sessionStorage.removeItem('ub_carga_pending');
-    if (!id) {
+    if (!how) {
+      sessionStorage.removeItem('ub_carga_pending');
       state.stop = true;
-      log(idx, 'guardada', 'se guardó pero no pude leer el N° de incidencia; corrida frenada para que lo verifiques. Info: ' + info + (warn ? ' — ' + warn : ''));
+      log(idx, 'guardada', 'se guardó pero no pude confirmarlo ni leer el N° de incidencia; corrida frenada para que lo verifiques (' + tiempos + '). Info: ' + info + (warn ? ' — ' + warn : ''));
       return;
     }
-    log(idx, 'guardada', 'incidencia ' + id + ' · ' + upNote + (warn ? ' — ' + warn : ''), { incidencia: id });
-    await newForm();
+    log(idx, 'guardada', (id ? 'incidencia ' + id : 'guardada (' + how + '; N° no leído)') + ' · ' + (upNote || 'sin fotos') + ' · ' + tiempos + (warn ? ' — ' + warn : ''), id ? { incidencia: id } : null);
+    // Formulario nuevo para la fila siguiente. La marca de "guardado en curso" se borra recién después:
+    // si la página se recarga mientras tanto, resumeAfterReload sigue con la cola sin repetir esta fila.
+    try { await newForm(); }
+    catch (e) { state.stop = true; setStatus('Fila ' + (idx + 1) + ' guardada, pero no pude limpiar el formulario (' + e.message + '). Apretá Nuevo y volvé a Procesar.'); }
+    sessionStorage.removeItem('ub_carga_pending');
   }
 
   async function run(indices, resumed) {
@@ -774,7 +786,7 @@
       return;
     }
     done[pend.key] = { id: '?', t: Date.now() }; lsSet(LS_DONE, done);
-    log(idx, 'guardada', 'guardada (la página se recargó; el N° de incidencia no se pudo leer: verificalo en el export de Urbetrack)');
+    if (state.rows[idx]._estado !== 'guardada') log(idx, 'guardada', 'guardada (la página se recargó; el N° de incidencia no se pudo leer: verificalo en el export de Urbetrack)');
     try { await clearPending(); } catch (e) { }
     var rest = runRec && runRec.indices ? runRec.indices.slice(runRec.pos + 1) : [];
     try { sessionStorage.removeItem('ub_carga_run'); } catch (e) { }
