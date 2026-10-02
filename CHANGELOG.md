@@ -1,5 +1,8 @@
 # Cambios
 
+## 0.8.1
+- El panel muestra la versión real instalada (antes decía siempre v0.6.5).
+
 ## 0.8.0
 - Script: si Guardar no arranca al primer clic (cartel "Fuera de la zona de servicio"), reintenta solo hasta 2 veces. Es seguro porque en ese caso no se mandó nada.
 - Script: si el Detalle tiene una sola opción (SIN INCIDENCIAS, AGRESION, SAME…), la elige aunque el archivo venga vacío.

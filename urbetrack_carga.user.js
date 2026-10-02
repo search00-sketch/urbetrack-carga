@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Urbetrack – Carga automática desde WhatsApp (GOVNA)
 // @namespace    dgfis-govna
-// @version      0.8.0
+// @version      0.8.1
 // @description  Carga incidencias en "Nueva incidencia" de Urbetrack a partir del JSON del conversor WhatsApp → Urbetrack, incluyendo fotos.
 // @match        https://gcaba.urbetrack.com/HigieneUrbana/Soporte/Default.aspx*
 // @run-at       document-idle
@@ -31,6 +31,8 @@
 
   // ------------------------------------------------------------------ utilidades
   var LS_CFG = 'ub_carga_cfg_v1', LS_DONE = 'ub_carga_done_v1', LS_ROWS = 'ub_carga_rows_v1', LS_LOG = 'ub_carga_log_v1';
+  // versión que se muestra en el panel: la real del encabezado (Tampermonkey), o esta si se pegó en la consola
+  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.8.1';
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var $id = function (id) { return document.getElementById(id); };
   function norm(s) {
@@ -625,7 +627,7 @@
     css();
     panel = document.createElement('div'); panel.id = 'ubc';
     panel.innerHTML =
-      '<div class="h"><span>Carga automática · WhatsApp → Urbetrack · v0.6.5</span><span id="ubc-tg">–</span></div>' +
+      '<div class="h"><span>Carga automática · WhatsApp → Urbetrack · v' + VERSION + '</span><span id="ubc-tg">–</span></div>' +
       '<div class="b" id="ubc-body">' +
       '<div class="r"><a href="https://search00-sketch.github.io/urbetrack-carga/" target="_blank" rel="noopener" style="color:#0a58ca;font-weight:600;margin-right:6px">🔗 Abrir conversor</a><button id="ubc-json">1 · Cargar JSON/CSV/Excel…</button><button id="ubc-paste">Pegar datos…</button><button id="ubc-fotos">2 · Carpeta de fotos…</button><span class="m" id="ubc-info"></span></div>' +
       '<input type="file" id="ubc-jf" accept=".json,.csv,.xlsx,.xls" style="display:none"><input type="file" id="ubc-ff" webkitdirectory multiple style="display:none">' +
