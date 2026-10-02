@@ -1,5 +1,10 @@
 # Cambios
 
+## Conversor (2026-10-02)
+- Chats donde la foto va sola y el texto llega en el mensaje siguiente (típico de Android): se unen si son del mismo remitente y con menos de 5 minutos de diferencia.
+- Direcciones con texto alrededor: "Corrientes 872 teatro opera, sin incidencias" → Corrientes 872; "Teatro Gran Rex corrientes 857" → corrientes 857.
+- Se toma también la dirección entre paréntesis aunque la línea siga ("Plaza … (Av Corrientes 1041) sin infractores").
+
 ## 0.8.1
 - El panel muestra la versión real instalada (antes decía siempre v0.6.5).
 

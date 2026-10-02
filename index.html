@@ -890,10 +890,24 @@
     if(h>=13 && h<19) return "TT SEMANA";
     return "TN SEMANA";
   }
+  const LUGAR_RE = /\b(teatro|cine|estadio|plaza|parque|hospital|iglesia|bas[ií]lica|shopping|museo|centro|hotel|club|bar|confiter[ií]a|estaci[oó]n|terminal|facultad|colegio|escuela)\b/i;
   function canonicalizeAddress(s, profile){
     if(!s) return s;
     const par = s.match(/\(([^)]*\d[^)]*)\)/);            // "Plaza de la república (Av Corrientes 1041)"
     if(par) s = par[1].trim();
+    // "Corrientes 872 teatro opera , sin incidencias" -> "Corrientes 872"; "Teatro Gran Rex corrientes 857" -> "corrientes 857"
+    const seg = s.split(",").map(x=>x.trim()).find(x=>/[A-Za-zÀ-ÿ].*\d/.test(x));
+    if(seg && /[A-Za-zÀ-ÿ]/.test(seg.charAt(0))){
+      const hasta = seg.match(/^(.*?[A-Za-zÀ-ÿ.]\s*\d{1,5})(?!\d)/);
+      if(hasta && !/\sy\s/i.test(hasta[1])){
+        s = hasta[1];
+        const ws = s.split(/\s+/);
+        if(ws.length > 3 && LUGAR_RE.test(s)){
+          const n = ws.pop(), calle = ws.pop(), prev = ws.pop();
+          s = (/^av(da)?\.?$|^avenida$/i.test(prev) ? prev + " " : "") + calle + " " + n;
+        }
+      }
+    }
     let s2 = s.replace(NARRATIVE_PREFIX,"").trim();
     s2 = s2.replace(NARRATIVE_SUFFIX,"").trim();
     s2 = s2.split(/,\s*(?:a las|ya esta|acompañando)/i)[0].trim();
@@ -953,13 +967,37 @@
     return messages;
   }
 
+  // Muchos inspectores mandan la foto sola y el texto en el mensaje siguiente. Si una foto no tiene texto y el
+  // próximo mensaje es del mismo remitente, solo texto y dentro de 5 minutos, se toma ese texto como el de la foto.
+  function unirFotoYTexto(messages){
+    const esFoto = m => m.lines.some(l => ATTACH_RE.test(l) || IOS_ATTACH_RE.test(l));
+    const texto = m => m.lines.map(l => l.replace(ATTACH_RE,"").replace(IOS_ATTACH_RE,"").replace(/[‎‏]/g,"").trim()).filter(Boolean);
+    const minutos = m => {
+      const [d,mo,y] = m.date.split("/").map(Number);
+      const [h,mi] = m.ampm === null ? m.time.split(":").map(Number) : to24h(m.time, m.ampm || guessAmPm(m.time));
+      return new Date(fullYear(y), mo-1, d, h, mi).getTime() / 60000;
+    };
+    const out = [];
+    for(let i = 0; i < messages.length; i++){
+      const m = messages[i], n = messages[i+1];
+      if(n && esFoto(m) && !texto(m).length && !esFoto(n) && texto(n).length && !/omitido|omitted/i.test(n.lines.join(" "))
+         && (m.sender||"") === (n.sender||"") && Math.abs(minutos(n) - minutos(m)) <= 5){
+        out.push({...m, lines: m.lines.concat(n.lines)});
+        i++;
+        continue;
+      }
+      out.push(m);
+    }
+    return out;
+  }
+
   function runParse(){
     if(!chatText){ toast("Subí un chat primero"); return; }
     const profile = readProfileFromForm();
     profiles = profiles.map(p=>p.id===profile.id ? profile : p);
     saveProfiles(profiles);
 
-    const messages = parseMessages(chatText);
+    const messages = unirFotoYTexto(parseMessages(chatText));
     const compiledHeaders = profile.contextHeaders.map(h=>({...h, re: safeRegex(h.pattern)}));
     const advRules = (profile.advancedRules || []).map(r => ({...r, res: (r.keywords||[]).map(k=>safeRegex(k,"i")).filter(Boolean)}));
     const solicitanteRules = profile.solicitanteRules || [];
@@ -1094,7 +1132,7 @@
       if(!addr){
         for(const l of caption.split("\n")){
           const ls = l.trim();
-          if(/\d{2,5}\)?\s*$/.test(ls) || /\by\b/i.test(ls)){ addr = ls; break; }
+          if(/\d{2,5}\)?\s*$/.test(ls) || /\by\b/i.test(ls) || /\([^)]*[A-Za-zÀ-ÿ][^)]*\d[^)]*\)/.test(ls)){ addr = ls; break; }
         }
       }
       if(!addr){
