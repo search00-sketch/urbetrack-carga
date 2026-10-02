@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Urbetrack – Carga automática desde WhatsApp (GOVNA)
 // @namespace    dgfis-govna
-// @version      0.7.0
+// @version      0.8.0
 // @description  Carga incidencias en "Nueva incidencia" de Urbetrack a partir del JSON del conversor WhatsApp → Urbetrack, incluyendo fotos.
 // @match        https://gcaba.urbetrack.com/HigieneUrbana/Soporte/Default.aspx*
 // @run-at       document-idle
@@ -259,6 +259,10 @@
       res.warnings.push('sin tipo de servicio en el JSON: quedó el primero del grupo ("' + $id('cbTipoServicio').selectedOptions[0].text + '")');
     }
     var det = effDetalle(r);
+    if (!det.v) {   // si el detalle tiene una sola opción (ej. SIN INCIDENCIAS → SIN INCIDENCIAS, AGRESION → AGRESION) se elige esa
+      var unicas = Array.prototype.filter.call($id('cbDetalleServicioHu').options, function (o) { return o.value && norm(o.text) && !/^SELECCION/.test(norm(o.text)); });
+      if (unicas.length === 1) det = { v: unicas[0].text, inferido: false };
+    }
     if (det.v) {
       await setSelect('cbDetalleServicioHu', 'Detalle de servicio', det.v);
       if (det.inferido) res.warnings.push('detalle inferido del texto: ' + det.v);
@@ -527,6 +531,12 @@
     guard.saved = [];
     var tSave = Date.now();
     var res = await clickAndWait($id('btGuardar'), 6000);
+    // A veces el primer clic en Guardar no arranca (aparece "Fuera de la zona de servicio" y no hace nada); el segundo sí.
+    // Si no arrancó, no se mandó nada al servidor: se puede reintentar sin riesgo de duplicar.
+    for (var intento = 0; intento < 2 && !res.started && !res.error; intento++) {
+      await sleep(1500);
+      res = await clickAndWait($id('btGuardar'), 6000);
+    }
     var info = infoText();
     if (!res.started) throw new Error('El guardado no arrancó (validación del formulario). ' + guard.alerts.join(' | ') + ' ' + info + ' · Página dice: ' + (problemasVisibles() || 'nada visible'));
     if (res.error) throw new Error('Error del servidor al guardar: ' + res.error);

@@ -865,7 +865,7 @@
   const AS_RE = /AS[\s/]*?(\d{4,6})/i;
   const NUM_ORDEN_RE = /\bS\d{6,9}\/\d{2}\b|\bEX-\d{4}-\d+\b/i;
   const NARRATIVE_PREFIX = /^(se\s+recorre\s+|se\s+disuade\s+parrilla\s+en\s+|transito\s+\S*\s*|tr[aá]nsito\s+\S*\s*|ya\s+|cerro\s+|corto\s+)+/i;
-  const NARRATIVE_SUFFIX = /\s+sin\s+infractor(es)?\.?$/i;
+  const NARRATIVE_SUFFIX = /\s+sin\s+(infractor(es)?|in[cs]idencias?|novedad(es)?)\.?$/i;
   const ADDR_RE = /^[A-Za-zÀ-ÿ.\s]{3,30}\d{1,5}\b|^[A-Za-zÀ-ÿ.\s]{3,30}\sy\s[A-Za-zÀ-ÿ.\s]{3,30}$/i;
 
   function to24h(t, ampm){
@@ -882,7 +882,10 @@
     if(wd === "Saturday" || wd === "Sunday"){
       return (h>=7 && h<19) ? "DIURNO SADOFE" : "NOCTURNO SADOFE";
     }
-    if(wd === "Friday" && (h>=19 || h<7)) return "NOCTURNO SADOFE";
+    // El turno es el del equipo que está trabajando: el TN de semana sigue después de las 00 (madrugada del viernes = TN SEMANA)
+    // y el NOCTURNO SADOFE del domingo sigue en la madrugada del lunes. SADOFE arranca el viernes a la noche.
+    if(wd === "Friday" && h>=19) return "NOCTURNO SADOFE";
+    if(wd === "Monday" && h<7) return "NOCTURNO SADOFE";
     if(h>=7 && h<13) return "TM SEMANA";
     if(h>=13 && h<19) return "TT SEMANA";
     return "TN SEMANA";
@@ -1175,7 +1178,7 @@
       attached++;
       return false;
     });
-    rows.forEach(r => r.files.sort());
+    rows.forEach(r => { r.files.sort(); completarContraCatalogo(r); });
     renderResults();
     setStep(rows.length ? 4 : 3);
     $("parseStatus").textContent = `${rows.length} incidencias detectadas (${attached} fotos extra agrupadas por horario), ${skipped.length} mensajes con foto sin asociar.`;
@@ -1192,6 +1195,65 @@
   function mkRow(r){
     r.estado = r.direccion ? "OK" : "REVISAR";
     return r;
+  }
+
+  // ---------- completar Grupo / Tipo / Detalle contra el catálogo de Urbetrack ----------
+  // Se aplica a todas las filas, sea cual sea el perfil guardado: corrige nombres que no coinciden con el catálogo,
+  // repite el valor cuando hay una sola opción (ej. SIN INCIDENCIAS → SIN INCIDENCIAS) y deduce del texto
+  // el tipo (disuasión, intimación…) y el tipo de vendedor cuando el mensaje lo dice.
+  const normCat = s => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase()
+    .replace(/INSIDENCIA/g,"INCIDENCIA").replace(/[^A-Z0-9 ]/g," ").replace(/\s+/g," ").trim();
+  function catKey(keys, v){
+    const w = normCat(v); if(!w) return "";
+    let m = keys.filter(k => normCat(k) === w); if(m.length === 1) return m[0];
+    const st = x => normCat(x).split(" ").map(t=>t.replace(/S$/,"")).join(" ");
+    m = keys.filter(k => st(k) === st(v)); if(m.length === 1) return m[0];
+    m = keys.filter(k => { const t = normCat(k); return t.includes(w) || w.includes(t); }); if(m.length === 1) return m[0];
+    m = keys.filter(k => normCat(k).split(" ")[0] === w.split(" ")[0]); if(m.length === 1) return m[0];
+    return "";
+  }
+  const TIPO_POR_TEXTO = [
+    [/sin\s+(incid|insid|infractor|novedad)|no\s+se\s+(constat|observ|encontr)|sin\s+vendedor/i, "RELEVAMIENTO"],
+    [/suspend|falta\s+(de\s+)?apoyo/i, "SUSPENDIDO"],
+    [/intim/i, "INTIMACION"],
+    [/disua|se\s+retir|levant/i, "DISUASION"],
+    [/comprob|constat/i, "COMPROBACION"]
+  ];
+  const DETALLE_POR_TEXTO = [
+    [/sin\s+(incid|insid|infractor|novedad)/i, "SIN INCIDENCIAS"],
+    [/no\s+(se\s+)?(dio|da)\s+curso|no\s+(\w+\s+){0,2}detenid/i, "NO DIO CURSO"],
+    [/dio\s+curso|detenid/i, "DIO CURSO"],
+    [/apoyo\s+policial|policia/i, "FALTA APOYO POLICIAL"],
+    [/vecino|entorpec/i, "VECINO ENTORPECE PROCEDIMIENTO"],
+    [/casta[ñn]ares/i, "DEPOSITO CASTAÑARES"], [/pedro\s+de\s+mendoza/i, "DEPOSITO PEDRO DE MENDOZA"],
+    [/parrill/i, "PARRILLA"], [/food\s*truck|foodtruck/i, "FOOD TRUCK"],
+    [/comida|chipa|aliment|chorip|garrapi|empanada/i, "COMIDA ARTESANAL"],
+    [/artesan/i, "ARTESANO"], [/mantero|manta\b|remera|ropa|calzado|zapatill/i, "MANTERO"],
+    [/comercio|local\b/i, "COMERCIO"], [/puesto|carro|carrito|ambulante|vendedor/i, "PUESTO DE VENTA AMBULANTE"],
+    [/higiene/i, "HIGIENE"], [/ordenamiento/i, "ORDENAMIENTO"], [/feria/i, "FERIAS"], [/tr[aá]nsito/i, "TRANSITO"]
+  ];
+  function completarContraCatalogo(r){
+    const cat = CATALOGO_UB.catalogo, txt = r.caption || "";
+    const gk = catKey(Object.keys(cat), r.grupo);
+    if(!gk){ return; }
+    r.grupo = gk;
+    const tipos = Object.keys(cat[gk]);
+    let tk = catKey(tipos, r.tipoServicio);
+    if(!tk && !r.tipoServicio && r.detalleServicio) tk = catKey(tipos, r.detalleServicio);     // FUERA DE OPERATORIA: GOCHU → GOCHU / GOCHU
+    if(!tk && !r.tipoServicio){
+      if(tipos.length === 1) tk = tipos[0];
+      else for(const [re, t] of TIPO_POR_TEXTO){ if(re.test(txt) && tipos.includes(t)){ tk = t; break; } }
+    }
+    if(tk) r.tipoServicio = tk;
+    if(!tk){ r.estado = "REVISAR"; return; }
+    const dets = cat[gk][tk] || [];
+    let dk = catKey(dets, r.detalleServicio);
+    if(!dk){
+      if(dets.length === 1) dk = dets[0];
+      else for(const [re, d] of DETALLE_POR_TEXTO){ if(re.test(txt) && dets.includes(d)){ dk = d; break; } }
+    }
+    r.detalleServicio = dk || "";
+    if(dets.length && !dk) r.estado = "REVISAR";
   }
 
   // ---------- results table ----------
@@ -1239,9 +1301,17 @@
         fill(selD, (gk && tk) ? cat[gk][tk] : [], r.detalleServicio, true);
       };
       refill();
-      selG.addEventListener("change", ()=>{ r.grupo = selG.value; r.tipoServicio = ""; r.detalleServicio = ""; refill(); });
-      selT.addEventListener("change", ()=>{ r.tipoServicio = selT.value; r.detalleServicio = ""; refill(); });
-      selD.addEventListener("change", ()=>{ r.detalleServicio = selD.value; });
+      // al cambiar a mano, si hay una sola opción se completa sola
+      const solo = ()=>{ const g = cat[r.grupo]; if(!g) return; const ts = Object.keys(g); if(!r.tipoServicio && ts.length===1) r.tipoServicio = ts[0]; const ds = g[r.tipoServicio]||[]; if(!r.detalleServicio && ds.length===1) r.detalleServicio = ds[0]; };
+      const marcar = ()=>{
+        const ds = ((cat[r.grupo]||{})[r.tipoServicio]) || [];
+        r.estado = (r.direccion && r.tipoServicio && (r.detalleServicio || !ds.length)) ? "OK" : "REVISAR";
+        tr.className = r.estado === "OK" ? "" : "row-warn";
+        tr.children[10].innerHTML = r.estado==='OK' ? '<span class="pill ok">OK</span>' : '<span class="pill warn">REVISAR</span>';
+      };
+      selG.addEventListener("change", ()=>{ r.grupo = selG.value; r.tipoServicio = ""; r.detalleServicio = ""; solo(); refill(); marcar(); });
+      selT.addEventListener("change", ()=>{ r.tipoServicio = selT.value; r.detalleServicio = ""; solo(); refill(); marcar(); });
+      selD.addEventListener("change", ()=>{ r.detalleServicio = selD.value; marcar(); });
       tr.querySelectorAll("input[data-f]").forEach(inp=>{
         inp.addEventListener("input", ()=>{
           r[inp.dataset.f] = inp.value;
