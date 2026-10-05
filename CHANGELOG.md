@@ -2,6 +2,7 @@
 
 ## Conversor (2026-10-05)
 - Nuevo Plazo **PATRULLA 4AM**: si el título del chat dice "4AM" / "4 AM", todas las filas de ese chat van con ese Plazo. También está en los desplegables del Excel.
+- El nombre del grupo se lee también del nombre del archivo exportado ("Chat de WhatsApp con PATRULLA - 4AM.txt"): ahí se detectan patrullas y el operativo 4 AM aunque el chat no lo mencione.
 - Chats con hora de 24 h ("14:46" sin a. m./p. m.): ya no les suma 12 horas (salía 26:46 y Urbetrack rechazaba la Fecha de aviso).
 
 ## Conversor (2026-10-02)

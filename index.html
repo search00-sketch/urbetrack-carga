@@ -277,7 +277,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-05b</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-05c</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -827,7 +827,7 @@
   function slug(s){ return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,""); }
 
   // ---------- file upload ----------
-  let chatText = null;
+  let chatText = null, chatFileName = "";
   const dz = $("dropzone"), fileInput = $("fileInput");
   dz.addEventListener("click", ()=>fileInput.click());
   dz.addEventListener("dragover", e=>{ e.preventDefault(); dz.classList.add("drag"); });
@@ -842,7 +842,7 @@
   function handleFile(f){
     const reader = new FileReader();
     reader.onload = () => {
-      chatText = reader.result;
+      chatText = reader.result; chatFileName = f.name || "";
       $("fileName").textContent = f.name + " · " + Math.round(f.size/1024) + " KB";
       setStep(2);
       const mediaMatches = chatText.match(/(IMG|VID)-\d+-WA\d+\.(jpg|jpeg|mp4|png)/gi) || [];
@@ -1024,12 +1024,16 @@
 
     // ¿Es el chat de una patrulla? El título del grupo ("PATRULLA 3 TN") aparece como remitente de los primeros mensajes del sistema.
     let chatKind = null, patrolName = "";
+    // El nombre del archivo exportado trae el del grupo: "Chat de WhatsApp con PATRULLA - 4AM.txt"
+    const tituloArchivo = chatFileName.replace(/\.txt$/i,"").replace(/^.*?\bcon\s+/i,"").replace(/_/g," ");
+    const hitArchivo = tituloArchivo.match(/PATRULLA\s*-?\s*\d*\s*(?:TM|TT|TN)?/i);
+    if(hitArchivo){ chatKind = "PATRULLA"; patrolName = hitArchivo[0].replace(/\s*-\s*$/,"").trim().toUpperCase(); }
     for(const m0 of messages.slice(0,6)){
       const hit = ((m0.sender||"") + " " + (m0.lines||[]).join(" ")).match(/PATRULLA\s*\d*\s*(?:TM|TT|TN)?/i);
       if(hit){ chatKind = "PATRULLA"; patrolName = hit[0].trim().toUpperCase(); break; }
     }
     // Operativo 4 AM: si el título del chat dice "4AM" / "4 AM", todas sus filas van con Plazo PATRULLA 4AM (sin importar la hora).
-    const es4am = messages.slice(0,6).some(m0 => /\b4\s*a\.?\s*m\b/i.test((m0.sender||"") + " " + (m0.lines||[]).join(" ")));
+    const es4am = /\b4\s*a\.?\s*m\b/i.test(tituloArchivo) || messages.slice(0,6).some(m0 => /\b4\s*a\.?\s*m\b/i.test((m0.sender||"") + " " + (m0.lines||[]).join(" ")));
 
     let context = null;
     rows = []; skipped = [];
