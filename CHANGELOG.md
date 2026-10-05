@@ -1,5 +1,8 @@
 # Cambios
 
+## Conversor (2026-10-05)
+- Chats con hora de 24 h ("14:46" sin a. m./p. m.): ya no les suma 12 horas (salía 26:46 y Urbetrack rechazaba la Fecha de aviso).
+
 ## Conversor (2026-10-02)
 - Chats donde la foto va sola y el texto llega en el mensaje siguiente (típico de Android): se unen si son del mismo remitente y con menos de 5 minutos de diferencia.
 - Direcciones con texto alrededor: "Corrientes 872 teatro opera, sin incidencias" → Corrientes 872; "Teatro Gran Rex corrientes 857" → corrientes 857.
