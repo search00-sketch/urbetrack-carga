@@ -1,5 +1,12 @@
 # Cambios
 
+## Conversor (2026-10-06)
+- Chats donde el texto va **antes** de las fotos ("Pilar 2000 / Sin incidencias", "SECUESTRO / Av X 123…" y después varias fotos): se detecta solo y cada texto se lleva todas sus fotos. Los chats con la foto primero siguen igual.
+- Se ignoran los mensajes vacíos y los "Se eliminó este mensaje".
+- N° de acta completo: AS00053254 ya no se corta (antes tomaba solo 6 dígitos).
+- Mensajes que empiezan con INTIMACIÓN / DISUASIÓN / COMPROBACIÓN → OFICIO con ese tipo; el acta AI… / AS… va en Código.
+- "Panchera" / "tortillas" → detalle COMIDA ARTESANAL.
+
 ## Conversor (2026-10-05)
 - Nuevo Plazo **PATRULLA 4AM**: si el título del chat dice "4AM" / "4 AM", todas las filas de ese chat van con ese Plazo. También está en los desplegables del Excel.
 - El nombre del grupo se lee también del nombre del archivo exportado ("Chat de WhatsApp con PATRULLA - 4AM.txt"): ahí se detectan patrullas y el operativo 4 AM aunque el chat no lo mencione.

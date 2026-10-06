@@ -277,7 +277,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-05c</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-06</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -862,7 +862,7 @@
   const MSG_RE = /^(\d{1,2}\/\d{1,2}\/\d{4}),\s(\d{1,2}:\d{2})(?:\s([ap])\.?\s?m\.?)?\s-\s(?:([^:]+?):\s)?(.*)$/;
   const ATTACH_RE = /[\u200e]?(IMG|VID)-\d+-WA\d+\.(jpg|jpeg|mp4|png)\s*\(archivo adjunto\)/i;
   const FILENAME_RE = /(IMG|VID)-\d+-WA\d+\.(jpg|jpeg|mp4|png)/i;
-  const AS_RE = /AS[\s/]*?(\d{4,6})/i;
+  const AS_RE = /AS[\s/]*?(\d{4,10})/i;
   const NUM_ORDEN_RE = /\bS\d{6,9}\/\d{2}\b|\bEX-\d{4}-\d+\b/i;
   const NARRATIVE_PREFIX = /^(se\s+recorre\s+|se\s+disuade\s+parrilla\s+en\s+|transito\s+\S*\s*|tr[aá]nsito\s+\S*\s*|ya\s+|cerro\s+|corto\s+)+/i;
   const NARRATIVE_SUFFIX = /\s+sin\s+(infractor(es)?|in[cs]idencias?|novedad(es)?)\.?$/i;
@@ -967,8 +967,11 @@
     return messages;
   }
 
-  // Muchos inspectores mandan la foto sola y el texto en el mensaje siguiente. Si una foto no tiene texto y el
-  // próximo mensaje es del mismo remitente, solo texto y dentro de 5 minutos, se toma ese texto como el de la foto.
+  // Foto y texto en mensajes separados. Hay dos costumbres:
+  //  - foto primero y el texto en el mensaje siguiente (ej. chat de teatros);
+  //  - texto primero ("Pilar 2000 / Sin incidencias", "SECUESTRO / Av X 123…") y después las fotos.
+  // Se decide por chat según de qué lado quedan más cerca las fotos de cada texto, y se unen en un solo mensaje
+  // (mismo remitente, hasta 5 minutos de diferencia).
   function unirFotoYTexto(messages){
     const esFoto = m => m.lines.some(l => ATTACH_RE.test(l) || IOS_ATTACH_RE.test(l));
     const texto = m => m.lines.map(l => l.replace(ATTACH_RE,"").replace(IOS_ATTACH_RE,"").replace(/[‎‏]/g,"").trim()).filter(Boolean);
@@ -977,11 +980,34 @@
       const [h,mi] = m.ampm === null ? m.time.split(":").map(Number) : to24h(m.time, m.ampm || guessAmPm(m.time));
       return new Date(fullYear(y), mo-1, d, h, mi).getTime() / 60000;
     };
+    const eliminado = m => /^(se elimin[oó] este mensaje|this message was deleted|eliminaste este mensaje)\.?$/i.test(texto(m).join(" "));
+    const msgs = messages.filter(m => esFoto(m) || (texto(m).length && !eliminado(m)));   // sin mensajes vacíos ni borrados
+    const fotoSola = m => m && esFoto(m) && !texto(m).length;
+    const textoSolo = m => m && !esFoto(m) && texto(m).length && !/omitido|omitted/i.test(m.lines.join(" "));
+    const mismo = (a,b) => (a.sender||"") === (b.sender||"");
+    let antes = 0, despues = 0;
+    msgs.forEach((m,i) => {
+      if(!textoSolo(m)) return;
+      const p = msgs[i-1], n = msgs[i+1];
+      const gp = fotoSola(p) && mismo(p,m) ? minutos(m) - minutos(p) : Infinity;
+      const gn = fotoSola(n) && mismo(n,m) ? minutos(n) - minutos(m) : Infinity;
+      if(gn < gp) despues++; else if(gp < gn) antes++;
+    });
     const out = [];
-    for(let i = 0; i < messages.length; i++){
-      const m = messages[i], n = messages[i+1];
-      if(n && esFoto(m) && !texto(m).length && !esFoto(n) && texto(n).length && !/omitido|omitted/i.test(n.lines.join(" "))
-         && (m.sender||"") === (n.sender||"") && Math.abs(minutos(n) - minutos(m)) <= 5){
+    for(let i = 0; i < msgs.length; i++){
+      const m = msgs[i];
+      if(despues > antes && textoSolo(m)){
+        const fotos = [];
+        let j = i + 1;
+        while(fotoSola(msgs[j]) && mismo(msgs[j], m) && minutos(msgs[j]) - minutos(m) <= 5){ fotos.push(msgs[j]); j++; }
+        if(fotos.length){
+          out.push({...m, lines: fotos.flatMap(f => f.lines).concat(m.lines)});
+          i = j - 1;
+          continue;
+        }
+      }
+      const n = msgs[i+1];
+      if(despues <= antes && fotoSola(m) && textoSolo(n) && mismo(m,n) && Math.abs(minutos(n) - minutos(m)) <= 5){
         out.push({...m, lines: m.lines.concat(n.lines)});
         i++;
         continue;
@@ -1066,6 +1092,11 @@
       }
       const fnm = fullText.match(FILENAME_RE);
       const filename = iosAtt !== null ? iosAtt : (fnm ? fnm[0] : null);
+      // todas las fotos del mensaje (cuando se unieron texto + varias fotos)
+      const allFiles = iosAtt !== null
+        ? msg.lines.map(l => (l.match(IOS_ATTACH_RE)||[])[1]).filter(f => f && IMG_EXT_RE.test(f.trim())).map(f => f.trim())
+        : (fullText.match(new RegExp(FILENAME_RE.source, "gi")) || []);
+      const filesOf = () => allFiles.length ? [...new Set(allFiles)] : (filename ? [filename] : []);
       const captionLines = iosAtt !== null
         ? msg.lines.map(l => l.replace(IOS_ATTACH_RE, "").replace(/[\u200e\u200f]/g,"").trim())
         : msg.lines.filter(l => !ATTACH_RE.test(l));
@@ -1124,7 +1155,7 @@
           file: filename, caption, grupo: profile.secuestro.grupo, tipoServicio: profile.secuestro.tipo,
           detalleServicio: "", codigo: acta2, precinto, numeroOrdenSap: extractNumeroOrden(caption),
           direccion: addr, solicitante: computeSolicitante(caption), turno,
-          contexto: context.label, sender, ts, datetime, files: filename ? [filename] : []
+          contexto: context.label, sender, ts, datetime, files: filesOf()
         }));
         continue;
       }
@@ -1163,6 +1194,18 @@
         }
       }
 
+      // Mensaje que arranca con INTIMACIÓN / DISUASIÓN / COMPROBACIÓN (fuera de punto crónico u hoja de ruta) → OFICIO.
+      const primera = caption.split("\n")[0].trim();
+      const accion = primera.match(/^(intimaci[oó]n|disuasi[oó]n|comprobaci[oó]n)\b/i);
+      let codigoAccion = null;
+      if(accion){
+        grupo = "OFICIO";
+        tipoServicio = accion[1].normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
+        detalleServicio = "";
+        const ai = caption.match(/\bA[IS]\s*\d{4,10}\b/i);
+        if(ai) codigoAccion = ai[0].replace(/\s+/g,"").toUpperCase();
+      }
+
       // Patrullas: PUNTO CRONICO / HOJA DE RUTA. Si dice "sin incidencias" -> tipo RELEVAMIENTO, detalle SIN INCIDENCIAS.
       let punto = "", comentario, usarComentario;
       const rawAddr = addr;
@@ -1198,9 +1241,9 @@
       rows.push(mkRow({
         id: uid(), categoria: "CHECKPOINT", date: msg.date, time: msg.time, weekday: wd,
         file: filename, caption, grupo, tipoServicio, detalleServicio,
-        codigo: null, precinto: null, numeroOrdenSap: extractNumeroOrden(caption),
+        codigo: codigoAccion, precinto: null, numeroOrdenSap: extractNumeroOrden(caption),
         direccion: addr, solicitante: computeSolicitante(caption), turno, contexto: context.label,
-        sender, ts, datetime, files: filename ? [filename] : [], punto, comentario, usarComentario
+        sender, ts, datetime, files: filesOf(), punto, comentario, usarComentario
       }));
     }
 
@@ -1271,7 +1314,7 @@
     [/vecino|entorpec/i, "VECINO ENTORPECE PROCEDIMIENTO"],
     [/casta[ñn]ares/i, "DEPOSITO CASTAÑARES"], [/pedro\s+de\s+mendoza/i, "DEPOSITO PEDRO DE MENDOZA"],
     [/parrill/i, "PARRILLA"], [/food\s*truck|foodtruck/i, "FOOD TRUCK"],
-    [/comida|chipa|aliment|chorip|garrapi|empanada/i, "COMIDA ARTESANAL"],
+    [/comida|chipa|aliment|chorip|garrapi|empanada|pancher|tortilla/i, "COMIDA ARTESANAL"],
     [/artesan/i, "ARTESANO"], [/mantero|manta\b|remera|ropa|calzado|zapatill/i, "MANTERO"],
     [/comercio|local\b/i, "COMERCIO"], [/puesto|carro|carrito|ambulante|vendedor/i, "PUESTO DE VENTA AMBULANTE"],
     [/higiene/i, "HIGIENE"], [/ordenamiento/i, "ORDENAMIENTO"], [/feria/i, "FERIAS"], [/tr[aá]nsito/i, "TRANSITO"]
