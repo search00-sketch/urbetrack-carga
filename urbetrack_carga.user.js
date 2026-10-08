@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Urbetrack – Carga automática desde WhatsApp (GOVNA)
 // @namespace    dgfis-govna
-// @version      0.8.1
+// @version      0.9.0
 // @description  Carga incidencias en "Nueva incidencia" de Urbetrack a partir del JSON del conversor WhatsApp → Urbetrack, incluyendo fotos.
 // @match        https://gcaba.urbetrack.com/HigieneUrbana/Soporte/Default.aspx*
 // @run-at       document-idle
@@ -32,7 +32,7 @@
   // ------------------------------------------------------------------ utilidades
   var LS_CFG = 'ub_carga_cfg_v1', LS_DONE = 'ub_carga_done_v1', LS_ROWS = 'ub_carga_rows_v1', LS_LOG = 'ub_carga_log_v1';
   // versión que se muestra en el panel: la real del encabezado (Tampermonkey), o esta si se pegó en la consola
-  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.8.1';
+  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.9.0';
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var $id = function (id) { return document.getElementById(id); };
   function norm(s) {
@@ -56,7 +56,8 @@
     inferirDetalle: false,      // inferir el tipo de vendedor (detalle) en SECUESTRO/DISUASION/etc. a partir del texto (apagado: no adivina)
     subirEnSim: true,           // en simulación también sube las fotos (y las borra al terminar la fila)
     dryRun: true,
-    stepMode: true              // pausa después de completar cada fila para revisarla
+    stepMode: true,             // pausa después de completar cada fila para revisarla
+    ver: { pendiente: true, error: true, cargada: true }   // filtros de la lista
   }, lsGet(LS_CFG, {}));
   function saveCfg() { lsSet(LS_CFG, cfg); }
 
@@ -612,11 +613,13 @@
     s.textContent =
       '#ubc{position:fixed;top:8px;left:8px;width:430px;max-height:92vh;z-index:2147483000;background:#fff;color:#1c231f;font:12.5px/1.35 -apple-system,Segoe UI,Arial,sans-serif;border:1px solid #0f6e5c;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.28);display:flex;flex-direction:column}' +
       '#ubc *{box-sizing:border-box}#ubc .h{background:#0f6e5c;color:#fff;padding:7px 10px;border-radius:9px 9px 0 0;font-weight:700;cursor:pointer;display:flex;justify-content:space-between}' +
-      '#ubc .b{padding:8px 10px;overflow:auto}#ubc button{font:inherit;padding:4px 9px;border:1px solid #9aa;border-radius:6px;background:#f1f4f2;cursor:pointer}' +
+      '#ubc .b{padding:8px 10px;display:flex;flex-direction:column;min-height:0;overflow:hidden}' +
+      '#ubc .top{flex:0 0 auto}#ubc #ubc-list{flex:1 1 auto;min-height:90px;overflow:auto;border-top:1px solid #cfd8d3;margin-top:4px}' +
+      '#ubc #ubc-list th{position:sticky;top:0;background:#fff;z-index:1}#ubc .flt label{background:#f1f4f2;border-radius:9px;padding:1px 7px}#ubc button{font:inherit;padding:4px 9px;border:1px solid #9aa;border-radius:6px;background:#f1f4f2;cursor:pointer}' +
       '#ubc button.p{background:#0f6e5c;color:#fff;border-color:#0f6e5c}#ubc button.d{background:#b23a2f;color:#fff;border-color:#b23a2f}#ubc button:disabled{opacity:.45;cursor:not-allowed}' +
       '#ubc .r{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0}#ubc label{display:flex;gap:4px;align-items:center}' +
       '#ubc select,#ubc input[type=text]{font:inherit;padding:2px 4px;border:1px solid #9aa;border-radius:5px;max-width:150px}' +
-      '#ubc table{width:100%;border-collapse:collapse;margin-top:6px}#ubc td,#ubc th{border-bottom:1px solid #e1e5e2;padding:3px 4px;text-align:left;vertical-align:top}' +
+      '#ubc table{width:100%;border-collapse:collapse;margin-top:0;font:inherit}#ubc td,#ubc th{border-bottom:1px solid #e1e5e2;padding:3px 4px;text-align:left;vertical-align:top}' +
       '#ubc .st{font-size:11px;padding:1px 6px;border-radius:9px;background:#eee;white-space:nowrap}' +
       '#ubc .st.guardada,#ubc .st.simulada{background:#dff3e2;color:#1e6b34}#ubc .st.error{background:#fbe4e1;color:#a3352a}#ubc .st.trabajando{background:#fdf1d6;color:#8a5a09}' +
       '#ubc .st.repetida{background:#e6e6f5;color:#3a3a8a}#ubc .m{color:#666;font-size:11px}#ubc .s{background:#f4f6f3;border-radius:6px;padding:5px 7px;margin:4px 0;min-height:30px}';
@@ -628,7 +631,7 @@
     panel = document.createElement('div'); panel.id = 'ubc';
     panel.innerHTML =
       '<div class="h"><span>Carga automática · WhatsApp → Urbetrack · v' + VERSION + '</span><span id="ubc-tg">–</span></div>' +
-      '<div class="b" id="ubc-body">' +
+      '<div class="b" id="ubc-body"><div class="top">' +
       '<div class="r"><a href="https://search00-sketch.github.io/urbetrack-carga/" target="_blank" rel="noopener" style="color:#0a58ca;font-weight:600;margin-right:6px">🔗 Abrir conversor</a><button id="ubc-json">1 · Cargar JSON/CSV/Excel…</button><button id="ubc-paste">Pegar datos…</button><button id="ubc-fotos">2 · Carpeta de fotos…</button><span class="m" id="ubc-info"></span></div>' +
       '<input type="file" id="ubc-jf" accept=".json,.csv,.xlsx,.xls" style="display:none"><input type="file" id="ubc-ff" webkitdirectory multiple style="display:none">' +
       '<div class="r"><label>Distrito <input type="text" id="ubc-dist" size="8"></label><label>Rango <input type="text" id="ubc-rango" size="9"></label></div>' +
@@ -640,8 +643,11 @@
       '<div class="r" id="ubc-pastebox" style="display:none;flex-direction:column;align-items:stretch"><textarea id="ubc-pta" rows="6" placeholder="Pegá acá el contenido (JSON o CSV) que copiaste del conversor" style="width:100%;font:11px/1.3 monospace"></textarea><div class="r"><button class="p" id="ubc-pok">Cargar</button><button id="ubc-pno">Cancelar</button></div></div>' +
       '<div class="s" id="ubc-status">Cargá el JSON del conversor y la carpeta de fotos.</div>' +
       '<div class="r" id="ubc-gate" style="display:none"><button class="p" id="ubc-go">Continuar</button><button id="ubc-skip">Omitir esta fila</button></div>' +
-      '<div class="r"><label><input type="checkbox" id="ubc-all" checked> todas</label></div>' +
-      '<div id="ubc-list"></div></div>';
+      '<div class="r flt"><b>Ver:</b><label><input type="checkbox" id="ubc-v-pendiente"> pendientes <span id="ubc-n-pendiente"></span></label>' +
+      '<label><input type="checkbox" id="ubc-v-error"> con error <span id="ubc-n-error"></span></label>' +
+      '<label><input type="checkbox" id="ubc-v-cargada"> cargadas <span id="ubc-n-cargada"></span></label></div>' +
+      '<div class="r"><label><input type="checkbox" id="ubc-all" checked> tildar / destildar las que se ven</label><span class="m" id="ubc-nsel"></span></div>' +
+      '</div><div id="ubc-list"></div></div>';
     document.body.appendChild(panel);
     statusEl = $id('ubc-status'); listEl = $id('ubc-list'); bodyEl = $id('ubc-body');
     $id('ubc-dist').value = cfg.distrito; $id('ubc-rango').value = cfg.rango;
@@ -665,7 +671,12 @@
     $id('ubc-step').onchange = function (e) { cfg.stepMode = e.target.checked; saveCfg(); };
     $id('ubc-inf').onchange = function (e) { cfg.inferirDetalle = e.target.checked; saveCfg(); };
     $id('ubc-sim-up').onchange = function (e) { cfg.subirEnSim = e.target.checked; saveCfg(); };
-    $id('ubc-all').onchange = function (e) { state.rows.forEach(function (r) { if (r._estado !== 'repetida') r._sel = e.target.checked; }); render(); };
+    // tildar / destildar solo las filas visibles; las ya cargadas nunca se tildan solas
+    $id('ubc-all').onchange = function (e) { state.rows.forEach(function (r) { if (visible(r)) r._sel = e.target.checked && cat(r) !== 'cargada'; }); persistRows(); render(); };
+    ['pendiente', 'error', 'cargada'].forEach(function (k) {
+      $id('ubc-v-' + k).checked = cfg.ver[k] !== false;
+      $id('ubc-v-' + k).onchange = function (e) { cfg.ver[k] = e.target.checked; saveCfg(); render(); };
+    });
     $id('ubc-run').onclick = function () {
       var idxs = []; state.rows.forEach(function (r, i) { if (r._sel) idxs.push(i); });
       run(idxs);
@@ -741,14 +752,23 @@
     render();
   }
 
+  // Estado de una fila para los filtros: cargada (guardada o ya cargada antes), error, o pendiente (el resto).
+  function cat(r) { return /^(guardada|repetida)/.test(r._estado || '') ? 'cargada' : (r._estado === 'error' ? 'error' : 'pendiente'); }
+  function visible(r) { return cfg.ver[cat(r)] !== false; }
+
   function render() {
     if (!listEl) return;
+    var n = { pendiente: 0, error: 0, cargada: 0 }, nsel = 0;
+    state.rows.forEach(function (r) { n[cat(r)]++; if (r._sel) nsel++; });
+    ['pendiente', 'error', 'cargada'].forEach(function (k) { $id('ubc-n-' + k).textContent = '(' + n[k] + ')'; });
+    $id('ubc-nsel').textContent = nsel + ' tildadas para procesar';
     var nPhotos = state.photos.size;
     $id('ubc-info').textContent = state.rows.length + ' filas · ' + nPhotos + ' fotos';
     $id('ubc-gate').style.display = state.gate ? 'flex' : 'none';
     $id('ubc-run').disabled = state.running; $id('ubc-json').disabled = state.running; $id('ubc-paste').disabled = state.running; $id('ubc-fotos').disabled = state.running;
     var h = '<table><tr><th></th><th>#</th><th>Fecha · Dirección</th><th>Grupo / Tipo</th><th>Fotos</th><th>Estado</th></tr>';
     state.rows.forEach(function (r, i) {
+      if (!visible(r)) return;
       var files = r.files || (r.file ? [r.file] : []);
       var miss = files.filter(function (n) { return !state.photos.has(n.toLowerCase()); }).length;
       var ph = files.length + (nPhotos && miss ? ' <span style="color:#a3352a">(faltan ' + miss + ')</span>' : '');
@@ -760,7 +780,7 @@
     });
     listEl.innerHTML = h + '</table>';
     Array.prototype.forEach.call(listEl.querySelectorAll('input[data-i]'), function (c) {
-      c.onchange = function () { state.rows[+c.dataset.i]._sel = c.checked; persistRows(); };
+      c.onchange = function () { state.rows[+c.dataset.i]._sel = c.checked; persistRows(); render(); };
     });
   }
 

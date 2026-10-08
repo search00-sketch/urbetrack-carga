@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.9.0
+- Panel: la parte de arriba (botones, opciones, estado y filtros) queda fija; solo se desplaza la lista de filas, con los títulos siempre visibles.
+- Filtros **Ver: pendientes / con error / cargadas**, con la cantidad de cada uno.
+- "Tildar / destildar las que se ven" actúa solo sobre las filas visibles y nunca vuelve a tildar las ya cargadas. Muestra cuántas quedan tildadas para procesar.
+
 ## Conversor (2026-10-08)
 - Si el primer renglón del mensaje es el nombre de un Grupo de Urbetrack (Reclamo, Derivado, Evento, Desalojo, Same, Agresión, Partido de fútbol, Hoja de ruta, Fuera de operatoria…), se usa ese grupo en cualquier chat (antes Hoja de ruta / Punto crónico solo funcionaban en chats de patrulla).
 - "Punto crítico" se reconoce igual que "Punto crónico".
