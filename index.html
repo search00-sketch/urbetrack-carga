@@ -277,7 +277,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-08</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-08b</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -1198,6 +1198,13 @@
       const primera = caption.split("\n")[0].trim();
       const accion = primera.match(/^(intimaci[oó]n|disuasi[oó]n|comprobaci[oó]n)\b/i);
       let codigoAccion = null;
+      // Primer renglón = nombre de un Grupo de Urbetrack ("Reclamo", "Derivado", "Evento", "Desalojo", "Same"…): se usa ese grupo.
+      if(!accion){
+        const p0 = normCat(primera);
+        const gHead = Object.keys(CATALOGO_UB.catalogo).filter(k => p0 === normCat(k) || p0.startsWith(normCat(k) + " "))
+          .sort((a,b) => b.length - a.length)[0];
+        if(gHead && gHead !== grupo){ grupo = gHead; tipoServicio = ""; detalleServicio = ""; }
+      }
       if(accion){
         grupo = "OFICIO";
         tipoServicio = accion[1].normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
@@ -1212,12 +1219,12 @@
       const headRe = /^(punto\s*cr[oóií](?:nico|tico)|hoja\s*de\s*ruta|relevamiento)\b/i;
       const hdr = caption.split("\n").map(x=>x.trim()).find(x=>headRe.test(x));
       const hdrKind = hdr ? hdr.match(headRe)[1].toLowerCase().replace(/\s+/g," ") : "";
-      if(chatKind === "PATRULLA" && (/^punto/.test(hdrKind) || /^hoja/.test(hdrKind))){
+      if(/^punto/.test(hdrKind) || /^hoja/.test(hdrKind)){
         grupo = /^punto/.test(hdrKind) ? "PUNTO CRONICO" : "HOJA DE RUTA";
         if(/sin\s+incid/i.test(caption)){ tipoServicio = "RELEVAMIENTO"; detalleServicio = "SIN INCIDENCIAS"; }
         else { tipoServicio = ""; detalleServicio = ""; }
       }
-      if(chatKind === "PATRULLA" && hdr){
+      if(hdr && (chatKind === "PATRULLA" || /^punto/.test(hdrKind) || /^hoja/.test(hdrKind))){
         // aclaraciones = líneas que no son encabezado, ubicación ni "sin incidencias"
         const lns = caption.split("\n").map(x=>x.trim()).filter(Boolean);
         const ai = lns.indexOf(rawAddr);
