@@ -1,5 +1,8 @@
 # Cambios
 
+## Conversor (2026-10-08)
+- "Punto crítico" se reconoce igual que "Punto crónico".
+
 ## Conversor (2026-10-06)
 - Chats donde el texto va **antes** de las fotos ("Pilar 2000 / Sin incidencias", "SECUESTRO / Av X 123…" y después varias fotos): se detecta solo y cada texto se lleva todas sus fotos. Los chats con la foto primero siguen igual.
 - Se ignoran los mensajes vacíos y los "Se eliminó este mensaje".

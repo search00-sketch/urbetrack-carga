@@ -277,7 +277,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-06</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-08</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -1209,7 +1209,7 @@
       // Patrullas: PUNTO CRONICO / HOJA DE RUTA. Si dice "sin incidencias" -> tipo RELEVAMIENTO, detalle SIN INCIDENCIAS.
       let punto = "", comentario, usarComentario;
       const rawAddr = addr;
-      const headRe = /^(punto\s*cr[oó]nico|hoja\s*de\s*ruta|relevamiento)\b/i;
+      const headRe = /^(punto\s*cr[oóií](?:nico|tico)|hoja\s*de\s*ruta|relevamiento)\b/i;
       const hdr = caption.split("\n").map(x=>x.trim()).find(x=>headRe.test(x));
       const hdrKind = hdr ? hdr.match(headRe)[1].toLowerCase().replace(/\s+/g," ") : "";
       if(chatKind === "PATRULLA" && (/^punto/.test(hdrKind) || /^hoja/.test(hdrKind))){
