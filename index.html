@@ -277,7 +277,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-08c</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-08d</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -1124,7 +1124,11 @@
         let addr = null;
         let acta2 = acta;
         const stripWords = /\b(se\s+realiza\s+)?secuestro(\s*\(remeras\))?\s*(sobre)?\b/ig;
-        for(const l of caption.split("\n")){
+        // primero la línea que tiene calle + número; los encabezados (Punto crónico, Hoja de ruta…) y el nombre del lugar no son la dirección
+        const lineasSec = caption.split("\n").map(x=>x.trim()).filter(Boolean)
+          .filter(x => !/^(punto\s*cr[oóií](?:nico|tico)|hoja\s*de\s*ruta|evento|partido|reclamo|secuestro)\b[^\d]*$/i.test(x));
+        const conAltura = lineasSec.find(x => /^[A-Za-zÀ-ÿ].*\d/.test(x) && !/^A[SI][\s/]*\d/i.test(x) && !/^art[ií]culos?\b/i.test(x));
+        for(const l of (conAltura ? [conAltura] : caption.split("\n"))){
           const ls = l.trim();
           if(!ls) continue;
           if(/^G?\d{6,8}$/i.test(ls)) continue;
@@ -1150,9 +1154,13 @@
           }
         }
         addr = canonicalizeAddress(addr, profile);
+        // Secuestro dentro de un punto crónico, hoja de ruta, evento, partido o reclamo → ese grupo / SECUESTRO; si no, OFICIO.
+        const gSec = (caption.match(/\b(punto\s*cr[oóií](?:nico|tico)|hoja\s*de\s*ruta|evento|partido(?:\s*de\s*f[uú]tbol)?|reclamo)\b/i) || [])[1] || "";
+        const grupoSec = /^punto/i.test(gSec) ? "PUNTO CRONICO" : /^hoja/i.test(gSec) ? "HOJA DE RUTA" : /^evento/i.test(gSec) ? "EVENTO"
+          : /^partido/i.test(gSec) ? "PARTIDO DE FUTBOL" : /^reclamo/i.test(gSec) ? "RECLAMO" : profile.secuestro.grupo;
         rows.push(mkRow({
           id: uid(), categoria: "SECUESTRO", date: msg.date, time: msg.time, weekday: wd,
-          file: filename, caption, grupo: profile.secuestro.grupo, tipoServicio: profile.secuestro.tipo,
+          file: filename, caption, grupo: grupoSec, tipoServicio: profile.secuestro.tipo,
           detalleServicio: "", codigo: acta2, precinto, numeroOrdenSap: extractNumeroOrden(caption),
           direccion: addr, solicitante: computeSolicitante(caption), turno,
           contexto: context.label, sender, ts, datetime, files: filesOf()

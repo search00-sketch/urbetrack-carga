@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Urbetrack – Carga automática desde WhatsApp (GOVNA)
 // @namespace    dgfis-govna
-// @version      0.11.0
+// @version      0.11.1
 // @description  Carga incidencias en "Nueva incidencia" de Urbetrack a partir del JSON del conversor WhatsApp → Urbetrack, incluyendo fotos.
 // @match        https://gcaba.urbetrack.com/HigieneUrbana/Soporte/Default.aspx*
 // @run-at       document-idle
@@ -35,7 +35,7 @@
   var LS_QUEUE = 'ub_carga_sheet_queue_v1';
   var LS_CFG = 'ub_carga_cfg_v1', LS_DONE = 'ub_carga_done_v1', LS_ROWS = 'ub_carga_rows_v1', LS_LOG = 'ub_carga_log_v1';
   // versión que se muestra en el panel: la real del encabezado (Tampermonkey), o esta si se pegó en la consola
-  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.11.0';
+  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.11.1';
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var $id = function (id) { return document.getElementById(id); };
   function norm(s) {
@@ -312,7 +312,7 @@
     if (ad.warn) res.warnings.push(ad.warn);
 
     var code = '', ext = '', sap = '';
-    if (r.codigo) r.codigo = String(r.codigo).replace(/\s+/g, '').toUpperCase();   // "As 0013235" → "AS0013235"
+    if (r.codigo) r.codigo = String(r.codigo).replace(/\s+/g, '').toUpperCase();   // "As 0013235" → "AS0013235" (los ceros se respetan: distinguen camadas)
     if (r.codigo) { if (cfg.actaEn === 'txtCode') code = r.codigo; else if (cfg.actaEn === 'txtExternalIdentifier') ext = r.codigo; }
     if (!r.codigo && /^(SECUESTRO|INTIMACION)/.test(norm(r.tipo_servicio))) res.warnings.push('SIN N° DE ACTA');
     if (/^SECUESTRO/.test(norm(r.tipo_servicio)) && !effDetalle(r).v) res.warnings.push('secuestro sin tipo de vendedor');
@@ -714,7 +714,7 @@
       '<div class="r"><a href="https://search00-sketch.github.io/urbetrack-carga/" target="_blank" rel="noopener" style="color:#0a58ca;font-weight:600;margin-right:6px">🔗 Abrir conversor</a><button id="ubc-json">1 · Cargar JSON/CSV/Excel…</button><button id="ubc-paste">Pegar datos…</button><button id="ubc-fotos">2 · Carpeta de fotos…</button><span class="m" id="ubc-info"></span></div>' +
       '<input type="file" id="ubc-jf" accept=".json,.csv,.xlsx,.xls" style="display:none"><input type="file" id="ubc-ff" webkitdirectory multiple style="display:none">' +
       '<div class="r"><label>Distrito <input type="text" id="ubc-dist" size="8"></label><label>Rango <input type="text" id="ubc-rango" size="9"></label></div>' +
-      '<div class="r"><label>Solicitante <select id="ubc-sol"><option>POLIGONO</option><option>PATRULLA</option><option>OPERATIVO</option><option>SEGUN FILA</option></select></label></div>' +
+      '<div class="r"><label>Solicitante <select id="ubc-sol"><option>POLIGONO</option><option>POLIGONO AMBULANTE</option><option>PATRULLA</option><option>OPERATIVO</option><option>SEGUN FILA</option></select></label></div>' +
       '<div class="r"><label>N° acta en <select id="ubc-acta"><option value="txtCode">Código</option><option value="txtExternalIdentifier">Código externo</option><option value="comentario">Comentario</option><option value="ninguno">no cargar</option></select></label>' +
       '<label>Precinto en <select id="ubc-prec"><option value="comentario">Comentario</option><option value="txtExternalIdentifier">Código externo</option><option value="ninguno">no cargar</option></select></label></div>' +
       '<div class="r"><label><input type="checkbox" id="ubc-dry"> <b>Simulación</b> (completa pero NO guarda)</label><label><input type="checkbox" id="ubc-step"> Pausar en cada fila</label><label><input type="checkbox" id="ubc-inf"> Inferir tipo de vendedor</label><label><input type="checkbox" id="ubc-sim-up"> Subir fotos también en simulación</label></div>' +

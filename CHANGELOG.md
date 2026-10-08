@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.11.1 (script) y conversor 2026-10-08d
+- Secuestro dentro de un **Punto crónico / Hoja de ruta / Evento / Partido / Reclamo** → ese grupo con tipo SECUESTRO (antes siempre OFICIO). Sin esas palabras sigue yendo a OFICIO.
+- En los secuestros la dirección es la línea con calle y número (antes podía tomar "Punto crónico" o el nombre del lugar).
+- Las actas se cargan tal cual, con sus ceros: AS0013235 y AS13235 son de camadas distintas.
+- Panel: Solicitante **POLIGONO AMBULANTE**.
+
 ## 0.11.0 (script) y conversor 2026-10-08c
 - **Registro duplicado**: con Urbetrack abierto en dos pestañas, cada fila se mandaba dos veces a la planilla. Ahora manda una sola pestaña por vez, cada fila lleva un `id` y la planilla descarta los repetidos (hay que actualizar el Apps Script: ver `google-sheets/Registro.gs`). El script no corre dentro de iframes.
 - **Direcciones**: si el geocodificador no encuentra el texto, el panel prueba sin "Recorrido x", "Intersección", "frente a" y con la última palabra + altura ("Carola Lorenzini 300" → "Lorenzini 300"). Una dirección sin altura da un error claro antes de intentar.
