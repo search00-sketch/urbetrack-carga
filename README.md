@@ -35,7 +35,7 @@ La URL y la clave **no** se suben a este repositorio: quedan solo en el navegado
 - Sin descripción, solo ubicación → Grupo RELEVAMIENTO, Tipo y Detalle SIN INCIDENCIAS.
 - Comentario del vecino vacío salvo que el texto aclare algo más que la ubicación.
 - Fecha de aviso = hora real del mensaje. Plazo según turno: TM/TT/TN SEMANA; SADOFE desde el viernes 19 h hasta el lunes 7 h
-  (la madrugada del viernes sigue siendo TN SEMANA).
+  (la madrugada del viernes sigue siendo TN SEMANA). Los feriados (campo "Feriados" del conversor) cuentan como SADOFE.
 - Las fotos se suben antes de guardar y se tildan; el script frena si en la lista hay fotos que no son de la fila.
 
 ## Seguridad

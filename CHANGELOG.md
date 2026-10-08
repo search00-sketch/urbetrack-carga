@@ -1,5 +1,9 @@
 # Cambios
 
+## Conversor 2026-10-08e
+- **Feriados**: campo editable en "3 · Procesar" (dd/mm/aaaa, separados por coma; queda guardado en el navegador). Un feriado cuenta como sábado/domingo: DIURNO SADOFE de 7 a 19 h y NOCTURNO SADOFE el resto; la víspera desde las 19 h y la madrugada siguiente (antes de las 7) también son NOCTURNO SADOFE.
+- Viene cargado con lo que queda de 2026: 12/10, 23/11, 08/12 y 25/12.
+
 ## 0.11.1 (script) y conversor 2026-10-08d
 - Secuestro dentro de un **Punto crónico / Hoja de ruta / Evento / Partido / Reclamo** → ese grupo con tipo SECUESTRO (antes siempre OFICIO). Sin esas palabras sigue yendo a OFICIO.
 - En los secuestros la dirección es la línea con calle y número (antes podía tomar "Punto crónico" o el nombre del lugar).

@@ -277,7 +277,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-08d</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-08e</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -407,6 +407,9 @@
         <div class="card-body">
           <label class="field"><span class="lbl">Ventana para agrupar fotos sin texto (minutos)</span>
             <input type="number" id="photoWindow" value="2" min="0" max="30" />
+          </label>
+          <label class="field"><span class="lbl">Feriados (dd/mm/aaaa, separados por coma) — cuentan como SADOFE</span>
+            <textarea id="feriados" rows="2" style="width:100%;font:inherit;font-size:12px"></textarea>
           </label>
           <button id="btnParse" class="primary" style="width:100%; justify-content:center;">Convertir chat con este perfil</button>
           <div class="hint" id="parseStatus" style="font-size:11.5px;color:var(--text-faint);"></div>
@@ -878,14 +881,25 @@
     const [d,mo,y] = dateStr.split("/").map(Number);
     return new Date(y, mo-1, d).toLocaleDateString("en-US", {weekday:"long"});
   }
-  function turnoFor(wd, h){
-    if(wd === "Saturday" || wd === "Sunday"){
-      return (h>=7 && h<19) ? "DIURNO SADOFE" : "NOCTURNO SADOFE";
-    }
-    // El turno es el del equipo que está trabajando: el TN de semana sigue después de las 00 (madrugada del viernes = TN SEMANA)
-    // y el NOCTURNO SADOFE del domingo sigue en la madrugada del lunes. SADOFE arranca el viernes a la noche.
-    if(wd === "Friday" && h>=19) return "NOCTURNO SADOFE";
-    if(wd === "Monday" && h<7) return "NOCTURNO SADOFE";
+  // Feriados (se editan en "3 · Procesar" y quedan guardados en este navegador). Un feriado cuenta como sábado/domingo.
+  const FERIADOS_DEFAULT = "12/10/2026, 23/11/2026, 08/12/2026, 25/12/2026";
+  function feriadosSet(){
+    let t = FERIADOS_DEFAULT;
+    try{ const v = localStorage.getItem("conversor_feriados"); if(v !== null) t = v; }catch(e){}
+    const set = new Set();
+    (t.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/g) || []).forEach(f => { const [d,m,y] = f.split("/").map(Number); set.add(`${d}/${m}/${y < 100 ? 2000 + y : y}`); });
+    return set;
+  }
+  // SADOFE = sábado, domingo o feriado. El turno es el del equipo que está trabajando:
+  // la víspera de un SADOFE desde las 19 h y la madrugada (antes de las 7) después de un SADOFE son NOCTURNO SADOFE;
+  // la madrugada de un día de semana después de otro día de semana sigue siendo TN SEMANA.
+  function turnoFor(dateStr, h){
+    const [d,m,y] = dateStr.split("/").map(Number);
+    const fer = feriadosSet();
+    const sadofe = off => { const x = new Date(y, m-1, d + off); return x.getDay() === 0 || x.getDay() === 6 || fer.has(`${x.getDate()}/${x.getMonth()+1}/${x.getFullYear()}`); };
+    if(sadofe(0)) return (h>=7 && h<19) ? "DIURNO SADOFE" : "NOCTURNO SADOFE";
+    if(h>=19 && sadofe(1)) return "NOCTURNO SADOFE";
+    if(h<7 && sadofe(-1)) return "NOCTURNO SADOFE";
     if(h>=7 && h<13) return "TM SEMANA";
     if(h>=13 && h<19) return "TT SEMANA";
     return "TN SEMANA";
@@ -1104,7 +1118,7 @@
 
       const [h, mi] = msg.ampm === null ? msg.time.split(":").map(Number) : to24h(msg.time, msg.ampm || guessAmPm(msg.time));
       const wd = weekdayOf(msg.date);
-      const turno = es4am ? "PATRULLA 4AM" : turnoFor(wd, h);
+      const turno = es4am ? "PATRULLA 4AM" : turnoFor(msg.date, h);
       const [dd, mm, yy] = msg.date.split("/").map(Number);
       const ts = new Date(yy, mm-1, dd, h, mi, msg.sec || 0).getTime();
       const datetime = `${String(dd).padStart(2,"0")}/${String(mm).padStart(2,"0")}/${yy} ${String(h).padStart(2,"0")}:${String(mi).padStart(2,"0")}`;
@@ -1542,6 +1556,8 @@
   }
 
   $("btnParse").addEventListener("click", runParse);
+  try{ const v = localStorage.getItem("conversor_feriados"); $("feriados").value = v !== null ? v : FERIADOS_DEFAULT; }catch(e){ $("feriados").value = FERIADOS_DEFAULT; }
+  $("feriados").addEventListener("change", e => { try{ localStorage.setItem("conversor_feriados", e.target.value); }catch(x){} });
 
   $("btnExportJson").addEventListener("click", async ()=>{
     if(!rows.length){ toast("No hay filas para exportar"); return; }
