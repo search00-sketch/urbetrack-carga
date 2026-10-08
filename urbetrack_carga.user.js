@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         Urbetrack – Carga automática desde WhatsApp (GOVNA)
 // @namespace    dgfis-govna
-// @version      0.10.0
+// @version      0.11.0
 // @description  Carga incidencias en "Nueva incidencia" de Urbetrack a partir del JSON del conversor WhatsApp → Urbetrack, incluyendo fotos.
 // @match        https://gcaba.urbetrack.com/HigieneUrbana/Soporte/Default.aspx*
 // @run-at       document-idle
+// @noframes
 // @grant        none
 // @require      https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js
 // @updateURL    https://raw.githubusercontent.com/search00-sketch/urbetrack-carga/main/urbetrack_carga.user.js
@@ -27,13 +28,14 @@
  */
 (function () {
   'use strict';
+  if (window.top !== window.self) return;   // solo en la página principal, nunca dentro de los iframes de Urbetrack
   if (window.__ubCarga) { window.__ubCarga.toggle(); return; }
 
   // ------------------------------------------------------------------ utilidades
   var LS_QUEUE = 'ub_carga_sheet_queue_v1';
   var LS_CFG = 'ub_carga_cfg_v1', LS_DONE = 'ub_carga_done_v1', LS_ROWS = 'ub_carga_rows_v1', LS_LOG = 'ub_carga_log_v1';
   // versión que se muestra en el panel: la real del encabezado (Tampermonkey), o esta si se pegó en la consola
-  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.10.0';
+  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.11.0';
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var $id = function (id) { return document.getElementById(id); };
   function norm(s) {
@@ -179,7 +181,30 @@
     if ($id(id).value !== value) throw new Error(label + ' no quedó como se cargó (' + $id(id).value + ')');
   }
 
+  // Variantes por si el geocodificador no encuentra el texto tal cual: sin "Recorrido x", "Intersección", "frente a"…,
+  // y solo la última palabra + altura ("Carola Lorenzini 300" → "Lorenzini 300").
+  function variantesDireccion(t) {
+    var v = [t];
+    var s2 = t.replace(/^(recorrido|recorriendo)\s+(x|por|de)\s+/i, '').replace(/^intersecci[oó]n\s+(de\s+)?/i, '').replace(/^(frente\s+a|esquina|altura)\s+/i, '').trim();
+    if (s2 && v.indexOf(s2) < 0) v.push(s2);
+    var m = s2.match(/(\S+)\s+(\d{1,5})$/);
+    if (m && s2.split(/\s+/).length > 2 && v.indexOf(m[1] + ' ' + m[2]) < 0) v.push(m[1] + ' ' + m[2]);
+    return v;
+  }
   async function setAddress(text) {
+    text = String(text || '').trim();
+    if (!/\d/.test(text) && !/\sy\s/i.test(text)) throw new Error('La dirección "' + text + '" no tiene altura: corregila en el conversor (calle y número)');
+    var vs = variantesDireccion(text), last = null;
+    for (var i = 0; i < vs.length; i++) {
+      try {
+        var res = await geocodificar(vs[i]);
+        if (i > 0) res.warn = (res.warn ? res.warn + '; ' : '') + 'se buscó "' + vs[i] + '" en vez de "' + text + '"';
+        return res;
+      } catch (e) { last = e; }
+    }
+    throw last;
+  }
+  async function geocodificar(text) {
     var a = $id('txtAddress'), $j = window.jQuery;
     if (!a || !$j || !$j(a).autocomplete) throw new Error('No encuentro el autocompletado de dirección');
     var widget = $j(a).autocomplete('widget')[0];
@@ -287,7 +312,10 @@
     if (ad.warn) res.warnings.push(ad.warn);
 
     var code = '', ext = '', sap = '';
+    if (r.codigo) r.codigo = String(r.codigo).replace(/\s+/g, '').toUpperCase();   // "As 0013235" → "AS0013235"
     if (r.codigo) { if (cfg.actaEn === 'txtCode') code = r.codigo; else if (cfg.actaEn === 'txtExternalIdentifier') ext = r.codigo; }
+    if (!r.codigo && /^(SECUESTRO|INTIMACION)/.test(norm(r.tipo_servicio))) res.warnings.push('SIN N° DE ACTA');
+    if (/^SECUESTRO/.test(norm(r.tipo_servicio)) && !effDetalle(r).v) res.warnings.push('secuestro sin tipo de vendedor');
     if (r.precinto && cfg.precintoEn === 'txtExternalIdentifier') ext = ext ? ext + ' / ' + r.precinto : r.precinto;
     if (r.numero_orden_sap && cfg.ordenEn === 'txtSapNroOrden') sap = r.numero_orden_sap;
     await setText('txtCode', 'Código', code);
@@ -492,6 +520,7 @@
     if (!cfg.sheetUrl) return;
     var q = lsGet(LS_QUEUE, []);
     q.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),   // la planilla descarta un id repetido
       operador: cfg.operador, estado: e.estado, incidencia: e.incidencia || '', fecha_aviso: r.datetime || ((r.date || '') + ' ' + (r.time || '')),
       direccion: r.direccion, grupo: r.grupo, tipo_servicio: r.tipo_servicio, detalle_servicio: r.detalle_servicio || '',
       solicitante: solicitanteDe(r), turno: r.turno, codigo: r.codigo || '', numero_orden_sap: r.numero_orden_sap || '',
@@ -504,7 +533,13 @@
   function enviarRegistro(prueba) {
     var q = prueba ? [prueba] : lsGet(LS_QUEUE, []).slice(0, 50);   // de a 50 filas (límite de tamaño del envío)
     if (!cfg.sheetUrl || !q.length || (enviando && !prueba)) { renderRegistro(); return Promise.resolve(); }
-    if (!prueba) enviando = true;
+    // una sola pestaña manda a la vez (la cola es compartida entre pestañas de Urbetrack)
+    if (!prueba) {
+      var lk = +localStorage.getItem('ub_carga_sheet_lock') || 0;
+      if (Date.now() - lk < 30000) { setTimeout(function () { enviarRegistro(); }, 5000); renderRegistro(); return Promise.resolve(); }
+      localStorage.setItem('ub_carga_sheet_lock', String(Date.now()));
+      enviando = true;
+    }
     var n = q.length;
     // Apps Script no deja leer la respuesta desde otra página (no-cors): si el envío sale sin error de red, se da por enviado.
     return fetch(cfg.sheetUrl, { method: 'POST', mode: 'no-cors', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -514,7 +549,7 @@
         regStatus = prueba ? 'Fila de prueba enviada: fijate si apareció en la planilla (hoja "Registro").' : 'Último envío: ' + new Date().toLocaleTimeString('es-AR');
       })
       .catch(function (x) { regStatus = '⚠ No pude enviar al registro (' + (x && x.message || x) + '). Queda en cola y se reintenta.'; })
-      .then(function () { if (!prueba) { enviando = false; if (lsGet(LS_QUEUE, []).length && !/⚠/.test(regStatus)) return enviarRegistro(); } renderRegistro(); });
+      .then(function () { if (!prueba) { enviando = false; localStorage.removeItem('ub_carga_sheet_lock'); if (lsGet(LS_QUEUE, []).length && !/⚠/.test(regStatus)) return enviarRegistro(); } renderRegistro(); });
   }
   var regStatus = '';
   function renderRegistro() {

@@ -11,11 +11,15 @@
  *     → Implementar → autorizar con tu cuenta → copiar la "URL de la aplicación web".
  *  5. En el panel de Urbetrack → "Registro en Google Sheets": pegar la URL y la CLAVE → "Probar".
  *
+ * ACTUALIZAR una planilla ya instalada: pegar este archivo de nuevo, Guardar, y
+ *   Implementar → Gestionar implementaciones → lápiz (editar) → Versión: "Nueva versión" → Implementar.
+ *   (La URL no cambia.)
+ *
  * La URL y la CLAVE NO se suben al repositorio (es público). Si se filtran: cambiar la CLAVE en el paso 3.
  */
 var HOJA = 'Registro';
 var COLUMNAS = ['registrado', 'operador', 'estado', 'incidencia', 'fecha_aviso', 'direccion', 'grupo', 'tipo_servicio',
-  'detalle_servicio', 'solicitante', 'turno', 'codigo', 'numero_orden_sap', 'fotos', 'contexto', 'mensaje', 'fila', 'version'];
+  'detalle_servicio', 'solicitante', 'turno', 'codigo', 'numero_orden_sap', 'fotos', 'contexto', 'mensaje', 'fila', 'version', 'id'];
 
 function doPost(e) {
   var datos;
@@ -32,7 +36,13 @@ function doPost(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var hoja = ss.getSheetByName(HOJA) || ss.insertSheet(HOJA);
     if (hoja.getLastRow() === 0) { hoja.appendRow(COLUMNAS); hoja.setFrozenRows(1); }
-    hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, COLUMNAS.length).setValues(filas);
+    var colId = COLUMNAS.length;
+    if (hoja.getRange(1, colId).getValue() !== 'id') hoja.getRange(1, colId).setValue('id');   // planillas creadas con la versión anterior
+    // Descarta filas ya registradas (mismo id): el panel puede reenviar si no recibió la confirmación.
+    var desde = Math.max(2, hoja.getLastRow() - 3000), vistos = {};
+    if (hoja.getLastRow() >= 2) hoja.getRange(desde, colId, hoja.getLastRow() - desde + 1, 1).getValues().forEach(function (v) { if (v[0]) vistos[v[0]] = 1; });
+    filas = filas.filter(function (f) { var id = f[colId - 1]; if (!id) return true; if (vistos[id]) return false; vistos[id] = 1; return true; });
+    if (filas.length) hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, COLUMNAS.length).setValues(filas);
   } finally { lock.releaseLock(); }
   return respuesta('ok: ' + filas.length);
 }

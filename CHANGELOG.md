@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.11.0 (script) y conversor 2026-10-08c
+- **Registro duplicado**: con Urbetrack abierto en dos pestañas, cada fila se mandaba dos veces a la planilla. Ahora manda una sola pestaña por vez, cada fila lleva un `id` y la planilla descarta los repetidos (hay que actualizar el Apps Script: ver `google-sheets/Registro.gs`). El script no corre dentro de iframes.
+- **Direcciones**: si el geocodificador no encuentra el texto, el panel prueba sin "Recorrido x", "Intersección", "frente a" y con la última palabra + altura ("Carola Lorenzini 300" → "Lorenzini 300"). Una dirección sin altura da un error claro antes de intentar.
+- **Avisos en el log**: "SIN N° DE ACTA" en secuestros e intimaciones sin acta, y "secuestro sin tipo de vendedor". El acta se normaliza ("As 0013235" → "AS0013235").
+- Conversor: el número de la dirección ya no se toma como acta ("Secuestro rivadavia 2846" quedaba como dirección "rivadavia" y acta AS2846). Solo se toma un número final como acta si la línea ya tiene altura ("Florida 900 64521").
+- Conversor: limpia "Recorrido x", "Intersección", "Dársenas frente a" al principio de la dirección.
+- Conversor: un tipo que no existe en el grupo se corrige (PUNTO CRONICO / "SIN INCIDENCIAS" → RELEVAMIENTO; RELEVAMIENTO / "RELEVAMIENTO" → SIN INCIDENCIAS).
+- Conversor: cada fila REVISAR dice por qué (sin altura, falta tipo de vendedor, falta N° de acta…) en la tabla y en la nueva columna **observaciones** del Excel/CSV/JSON.
+
 ## 0.10.0
 - **Registro en Google Sheets**: cada fila guardada, con error u omitida se agrega sola a una planilla (hoja "Registro"), con operador, estado, N° de incidencia, fecha, dirección, grupo/tipo/detalle, turno, código, fotos y mensaje. Las simulaciones no se registran.
 - Si no hay conexión, las filas quedan en cola en el navegador y se mandan en el próximo envío o al recargar.

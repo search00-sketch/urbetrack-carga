@@ -277,7 +277,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-08b</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-08c</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -864,7 +864,7 @@
   const FILENAME_RE = /(IMG|VID)-\d+-WA\d+\.(jpg|jpeg|mp4|png)/i;
   const AS_RE = /AS[\s/]*?(\d{4,10})/i;
   const NUM_ORDEN_RE = /\bS\d{6,9}\/\d{2}\b|\bEX-\d{4}-\d+\b/i;
-  const NARRATIVE_PREFIX = /^(se\s+recorre\s+|se\s+disuade\s+parrilla\s+en\s+|transito\s+\S*\s*|tr[aá]nsito\s+\S*\s*|ya\s+|cerro\s+|corto\s+)+/i;
+  const NARRATIVE_PREFIX = /^(recorrido\s+(?:x|por|de)\s+|recorriendo\s+|intersecci[oó]n\s+(?:de\s+)?|(?:d[aá]rsenas?\s+)?frente\s+a\s+|se\s+recorre\s+|se\s+disuade\s+parrilla\s+en\s+|transito\s+\S*\s*|tr[aá]nsito\s+\S*\s*|ya\s+|cerro\s+|corto\s+)+/i;
   const NARRATIVE_SUFFIX = /\s+sin\s+(infractor(es)?|in[cs]idencias?|novedad(es)?)\.?$/i;
   const ADDR_RE = /^[A-Za-zÀ-ÿ.\s]{3,30}\d{1,5}\b|^[A-Za-zÀ-ÿ.\s]{3,30}\sy\s[A-Za-zÀ-ÿ.\s]{3,30}$/i;
 
@@ -1134,7 +1134,7 @@
           if(cleaned){
             // a trailing standalone 4-6 digit number stuck on the address line is the
             // acta code written without "AS" prefix -- split it off
-            const tailM = cleaned.match(/^(.*?)\s+(\d{4,6})$/);
+            const tailM = cleaned.match(/^(.*?\d{1,5})\s+(\d{4,8})$/);   // "Florida 900 64521" → acta 64521; "Rivadavia 2846" queda como dirección
             if(tailM && !acta2){
               const cleaned2 = tailM[1].trim();
               if(cleaned2){ acta2 = "AS"+tailM[2]; cleaned = cleaned2; }
@@ -1272,7 +1272,7 @@
       attached++;
       return false;
     });
-    rows.forEach(r => { r.files.sort(); completarContraCatalogo(r); });
+    rows.forEach(r => { r.files.sort(); completarContraCatalogo(r); evaluarFila(r); });
     renderResults();
     setStep(rows.length ? 4 : 3);
     $("parseStatus").textContent = `${rows.length} incidencias detectadas (${attached} fotos extra agrupadas por horario), ${skipped.length} mensajes con foto sin asociar.`;
@@ -1307,7 +1307,7 @@
     return "";
   }
   const TIPO_POR_TEXTO = [
-    [/sin\s+(incid|insid|infractor|novedad)|no\s+se\s+(constat|observ|encontr)|sin\s+vendedor/i, "RELEVAMIENTO"],
+    [/sin\s+(incid|insid|infractor|novedad)|no\s+se\s+(constat|observ|encontr)|sin\s+vendedor/i, ["RELEVAMIENTO", "SIN INCIDENCIAS"]],
     [/suspend|falta\s+(de\s+)?apoyo/i, "SUSPENDIDO"],
     [/intim/i, "INTIMACION"],
     [/disua|se\s+retir|levant/i, "DISUASION"],
@@ -1334,12 +1334,12 @@
     const tipos = Object.keys(cat[gk]);
     let tk = catKey(tipos, r.tipoServicio);
     if(!tk && !r.tipoServicio && r.detalleServicio) tk = catKey(tipos, r.detalleServicio);     // FUERA DE OPERATORIA: GOCHU → GOCHU / GOCHU
-    if(!tk && !r.tipoServicio){
+    if(!tk){   // sin tipo, o con uno que no existe en este grupo (ej. PUNTO CRONICO / "SIN INCIDENCIAS"): se deduce de nuevo
       if(tipos.length === 1) tk = tipos[0];
-      else for(const [re, t] of TIPO_POR_TEXTO){ if(re.test(txt) && tipos.includes(t)){ tk = t; break; } }
+      else for(const [re, ts] of TIPO_POR_TEXTO){ const t = [].concat(ts).find(x => tipos.includes(x)); if(re.test(txt) && t){ tk = t; break; } }
     }
     if(tk) r.tipoServicio = tk;
-    if(!tk){ r.estado = "REVISAR"; return; }
+    if(!tk) return;
     const dets = cat[gk][tk] || [];
     let dk = catKey(dets, r.detalleServicio);
     if(!dk){
@@ -1347,7 +1347,25 @@
       else for(const [re, d] of DETALLE_POR_TEXTO){ if(re.test(txt) && dets.includes(d)){ dk = d; break; } }
     }
     r.detalleServicio = dk || "";
-    if(dets.length && !dk) r.estado = "REVISAR";
+  }
+
+  // OK o REVISAR, con el motivo (se muestra en la tabla y sale en la columna "observaciones").
+  function evaluarFila(r){
+    const obs = [], g = CATALOGO_UB.catalogo[r.grupo], dir = String(r.direccion || "").trim();
+    if(!dir) obs.push("sin dirección");
+    else if(!/\d/.test(dir) && !/\sy\s/i.test(dir)) obs.push("dirección sin altura");
+    if(!g) obs.push(r.grupo ? "grupo fuera de catálogo" : "falta grupo");
+    else if(!r.tipoServicio) obs.push("falta tipo");
+    else if(!g[r.tipoServicio]) obs.push("tipo fuera de catálogo");
+    else if(g[r.tipoServicio].length && !r.detalleServicio) obs.push(/^(SECUESTRO|COMPROBACION|DISUASION|INTIMACION)$/.test(r.tipoServicio) ? "falta tipo de vendedor" : "falta detalle");
+    if(/^(SECUESTRO|INTIMACION)$/.test(r.tipoServicio || "") && !r.codigo) obs.push("falta N° de acta");
+    r.observaciones = obs.join("; ");
+    r.estado = obs.length ? "REVISAR" : "OK";
+    return r;
+  }
+  function pillEstado(r){
+    return r.estado === "OK" ? '<span class="pill ok">OK</span>'
+      : '<span class="pill warn" title="' + escAttr(r.observaciones || "") + '">REVISAR</span>' + (r.observaciones ? '<div style="font-size:10px;color:#a3352a;max-width:130px">' + escHtml(r.observaciones) + '</div>' : '');
   }
 
   // ---------- results table ----------
@@ -1372,7 +1390,7 @@
         <td class="num">${escHtml(codeParts.join(" / "))}</td>
         <td class="file-cell" title="${escAttr((r.files||[]).join(', '))}">${(r.files||[]).length ? (r.files.length + ' foto' + (r.files.length>1?'s':'')) : '—'}</td>
         <td class="caption-cell">${escHtml(r.caption)}</td>
-        <td>${r.estado==='OK' ? '<span class="pill ok">OK</span>' : '<span class="pill warn">REVISAR</span>'}</td>
+        <td>${pillEstado(r)}</td>
         <td><button class="small ghost danger" data-del="1">✕</button></td>
       `;
       const selG = tr.querySelector('select[data-f="grupo"]'), selT = tr.querySelector('select[data-f="tipoServicio"]'), selD = tr.querySelector('select[data-f="detalleServicio"]');
@@ -1398,10 +1416,9 @@
       // al cambiar a mano, si hay una sola opción se completa sola
       const solo = ()=>{ const g = cat[r.grupo]; if(!g) return; const ts = Object.keys(g); if(!r.tipoServicio && ts.length===1) r.tipoServicio = ts[0]; const ds = g[r.tipoServicio]||[]; if(!r.detalleServicio && ds.length===1) r.detalleServicio = ds[0]; };
       const marcar = ()=>{
-        const ds = ((cat[r.grupo]||{})[r.tipoServicio]) || [];
-        r.estado = (r.direccion && r.tipoServicio && (r.detalleServicio || !ds.length)) ? "OK" : "REVISAR";
+        evaluarFila(r);
         tr.className = r.estado === "OK" ? "" : "row-warn";
-        tr.children[10].innerHTML = r.estado==='OK' ? '<span class="pill ok">OK</span>' : '<span class="pill warn">REVISAR</span>';
+        tr.children[10].innerHTML = pillEstado(r);
       };
       selG.addEventListener("change", ()=>{ r.grupo = selG.value; r.tipoServicio = ""; r.detalleServicio = ""; solo(); refill(); marcar(); });
       selT.addEventListener("change", ()=>{ r.tipoServicio = selT.value; r.detalleServicio = ""; solo(); refill(); marcar(); });
@@ -1410,9 +1427,9 @@
         inp.addEventListener("input", ()=>{
           r[inp.dataset.f] = inp.value;
           if(inp.dataset.f === "direccion"){
-            r.estado = inp.value.trim() ? "OK" : "REVISAR";
+            evaluarFila(r);
             tr.className = r.estado === "OK" ? "" : "row-warn";
-            tr.children[10].innerHTML = r.estado==='OK' ? '<span class="pill ok">OK</span>' : '<span class="pill warn">REVISAR</span>';
+            tr.children[10].innerHTML = pillEstado(r);
           }
         });
       });
@@ -1526,14 +1543,15 @@
       detalle_servicio: r.detalleServicio || null,
       codigo: r.codigo, precinto: r.precinto, numero_orden_sap: r.numeroOrdenSap || null,
       direccion: r.direccion, solicitante: r.solicitante, turno: r.turno, contexto: r.contexto,
-      files: r.files || (r.file ? [r.file] : []), datetime: r.datetime || null, sender: r.sender || null, punto: r.punto || null, comentario: r.comentario === undefined ? undefined : r.comentario, usar_comentario: r.usarComentario || undefined
+      files: r.files || (r.file ? [r.file] : []), datetime: r.datetime || null, sender: r.sender || null, punto: r.punto || null, comentario: r.comentario === undefined ? undefined : r.comentario, usar_comentario: r.usarComentario || undefined,
+      estado: r.estado, observaciones: r.observaciones || undefined
     }));
     await downloadText(JSON.stringify(out, null, 2), `records-${slug(getActiveProfile().name)}-${todayStr()}.json`, "application/json");
   });
 
   $("btnExportCsv").addEventListener("click", async ()=>{
     if(!rows.length){ toast("No hay filas para exportar"); return; }
-    const cols = ["categoria","date","time","datetime","weekday","files","caption","grupo","tipoServicio","detalleServicio","codigo","precinto","numeroOrdenSap","direccion","solicitante","turno","contexto","punto","comentario","usarComentario","estado"];
+    const cols = ["categoria","date","time","datetime","weekday","files","caption","grupo","tipoServicio","detalleServicio","codigo","precinto","numeroOrdenSap","direccion","solicitante","turno","contexto","punto","comentario","usarComentario","estado","observaciones"];
     const esc = (v)=> `"${String(v??"").replace(/"/g,'""')}"`;
     const lines = [cols.join(",")].concat(rows.map(r=> cols.map(c=>esc(c==="files" ? (r.files||[]).join("|") : r[c])).join(",")));
     await downloadText(lines.join("\n"), `records-${slug(getActiveProfile().name)}-${todayStr()}.csv`, "text/csv");
@@ -1542,7 +1560,7 @@
   $("btnExportXlsx").addEventListener("click", async ()=>{
     if(!rows.length){ toast("No hay filas para exportar"); return; }
     if(typeof ExcelJS === "undefined"){ toast("No se cargó la librería de Excel. Probá con CSV."); return; }
-    const cols = ["categoria","date","time","datetime","weekday","files","caption","grupo","tipoServicio","detalleServicio","codigo","precinto","numeroOrdenSap","direccion","solicitante","turno","contexto","punto","comentario","usarComentario","estado"];
+    const cols = ["categoria","date","time","datetime","weekday","files","caption","grupo","tipoServicio","detalleServicio","codigo","precinto","numeroOrdenSap","direccion","solicitante","turno","contexto","punto","comentario","usarComentario","estado","observaciones"];
     const L = n => { let s=""; n++; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26);} return s; };
     const col = c => L(cols.indexOf(c));
     const wb = new ExcelJS.Workbook();
