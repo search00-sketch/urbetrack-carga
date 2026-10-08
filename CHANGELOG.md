@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.10.0
+- **Registro en Google Sheets**: cada fila guardada, con error u omitida se agrega sola a una planilla (hoja "Registro"), con operador, estado, N° de incidencia, fecha, dirección, grupo/tipo/detalle, turno, código, fotos y mensaje. Las simulaciones no se registran.
+- Si no hay conexión, las filas quedan en cola en el navegador y se mandan en el próximo envío o al recargar.
+- La URL y la clave se cargan en el panel y quedan solo en el navegador (no en el repo). Script de la planilla: `google-sheets/Registro.gs`.
+
 ## 0.9.0
 - Panel: la parte de arriba (botones, opciones, estado y filtros) queda fija; solo se desplaza la lista de filas, con los títulos siempre visibles.
 - Filtros **Ver: pendientes / con error / cargadas**, con la cantidad de cada uno.

@@ -23,6 +23,14 @@ Las actualizaciones llegan solas: Tampermonkey revisa la dirección de `@updateU
 Urbetrack recarga la página completa al guardar; el script conserva filas, fotos y log en el navegador
 y continúa solo con las filas que faltan.
 
+## Registro en Google Sheets (opcional)
+Para que cada carga y cada error quede anotado solo en una planilla compartida:
+1. Crear una planilla de Google → **Extensiones → Apps Script** → pegar `google-sheets/Registro.gs` (las instrucciones están al principio del archivo).
+2. Definir la propiedad **CLAVE**, implementar como **Aplicación web** (Ejecutar como: Yo · Acceso: Cualquier persona) y copiar la URL.
+3. En el panel de Urbetrack → **📄 Registro en Google Sheets**: pegar URL y clave, poner tu nombre en Operador y tocar **Probar**.
+
+La URL y la clave **no** se suben a este repositorio: quedan solo en el navegador de cada operador.
+
 ## Reglas de carga (GOVNA)
 - Sin descripción, solo ubicación → Grupo RELEVAMIENTO, Tipo y Detalle SIN INCIDENCIAS.
 - Comentario del vecino vacío salvo que el texto aclare algo más que la ubicación.

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Urbetrack – Carga automática desde WhatsApp (GOVNA)
 // @namespace    dgfis-govna
-// @version      0.9.0
+// @version      0.10.0
 // @description  Carga incidencias en "Nueva incidencia" de Urbetrack a partir del JSON del conversor WhatsApp → Urbetrack, incluyendo fotos.
 // @match        https://gcaba.urbetrack.com/HigieneUrbana/Soporte/Default.aspx*
 // @run-at       document-idle
@@ -30,9 +30,10 @@
   if (window.__ubCarga) { window.__ubCarga.toggle(); return; }
 
   // ------------------------------------------------------------------ utilidades
+  var LS_QUEUE = 'ub_carga_sheet_queue_v1';
   var LS_CFG = 'ub_carga_cfg_v1', LS_DONE = 'ub_carga_done_v1', LS_ROWS = 'ub_carga_rows_v1', LS_LOG = 'ub_carga_log_v1';
   // versión que se muestra en el panel: la real del encabezado (Tampermonkey), o esta si se pegó en la consola
-  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.9.0';
+  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.10.0';
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var $id = function (id) { return document.getElementById(id); };
   function norm(s) {
@@ -57,7 +58,10 @@
     subirEnSim: true,           // en simulación también sube las fotos (y las borra al terminar la fila)
     dryRun: true,
     stepMode: true,             // pausa después de completar cada fila para revisarla
-    ver: { pendiente: true, error: true, cargada: true }   // filtros de la lista
+    ver: { pendiente: true, error: true, cargada: true },  // filtros de la lista
+    sheetUrl: '',               // registro en Google Sheets: URL de la aplicación web de Apps Script (queda solo en este navegador)
+    sheetClave: '',             // y su CLAVE
+    operador: ''                // nombre de quien carga (va al registro)
   }, lsGet(LS_CFG, {}));
   function saveCfg() { lsSet(LS_CFG, cfg); }
 
@@ -476,8 +480,48 @@
     state.log.push(e);
     try { localStorage.setItem(LS_LOG, JSON.stringify(state.log)); } catch (x) { }
     var r = state.rows[idx]; if (r) { r._estado = estado; r._msg = msg || ''; if (estado === 'guardada') r._sel = false; }   // una fila guardada se destilda sola para no repetirla
+    if (r && /^(guardada|error|omitida)$/.test(estado)) registrar(r, e);
     persistRows();
     render();
+  }
+
+  // ------------------------------------------------------------------ registro en Google Sheets
+  // Cada fila guardada / con error / omitida se encola y se manda a la planilla. Si no hay conexión queda en la cola
+  // (en este navegador) y se reintenta en el próximo envío o al recargar la página.
+  function registrar(r, e) {
+    if (!cfg.sheetUrl) return;
+    var q = lsGet(LS_QUEUE, []);
+    q.push({
+      operador: cfg.operador, estado: e.estado, incidencia: e.incidencia || '', fecha_aviso: r.datetime || ((r.date || '') + ' ' + (r.time || '')),
+      direccion: r.direccion, grupo: r.grupo, tipo_servicio: r.tipo_servicio, detalle_servicio: r.detalle_servicio || '',
+      solicitante: solicitanteDe(r), turno: r.turno, codigo: r.codigo || '', numero_orden_sap: r.numero_orden_sap || '',
+      fotos: (r.files || []).length, contexto: r.contexto || '', mensaje: e.mensaje, fila: e.fila, version: VERSION
+    });
+    lsSet(LS_QUEUE, q);
+    enviarRegistro();
+  }
+  var enviando = false;
+  function enviarRegistro(prueba) {
+    var q = prueba ? [prueba] : lsGet(LS_QUEUE, []).slice(0, 50);   // de a 50 filas (límite de tamaño del envío)
+    if (!cfg.sheetUrl || !q.length || (enviando && !prueba)) { renderRegistro(); return Promise.resolve(); }
+    if (!prueba) enviando = true;
+    var n = q.length;
+    // Apps Script no deja leer la respuesta desde otra página (no-cors): si el envío sale sin error de red, se da por enviado.
+    return fetch(cfg.sheetUrl, { method: 'POST', mode: 'no-cors', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ clave: cfg.sheetClave, filas: q }) })
+      .then(function () {
+        if (!prueba) { var resto = lsGet(LS_QUEUE, []).slice(n); lsSet(LS_QUEUE, resto); }
+        regStatus = prueba ? 'Fila de prueba enviada: fijate si apareció en la planilla (hoja "Registro").' : 'Último envío: ' + new Date().toLocaleTimeString('es-AR');
+      })
+      .catch(function (x) { regStatus = '⚠ No pude enviar al registro (' + (x && x.message || x) + '). Queda en cola y se reintenta.'; })
+      .then(function () { if (!prueba) { enviando = false; if (lsGet(LS_QUEUE, []).length && !/⚠/.test(regStatus)) return enviarRegistro(); } renderRegistro(); });
+  }
+  var regStatus = '';
+  function renderRegistro() {
+    var el = $id('ubc-reg-st'); if (!el) return;
+    var p = lsGet(LS_QUEUE, []).length;
+    el.textContent = !cfg.sheetUrl ? 'Sin configurar: el registro queda solo en este navegador (⬇ Log).' : (p ? p + ' pendiente(s) de enviar. ' : '') + regStatus;
+    $id('ubc-reg-sum').textContent = cfg.sheetUrl ? (p ? '⚠ ' + p + ' sin enviar' : '✓ activo') : 'apagado';
   }
   function waitGate(text) {
     setStatus(text);
@@ -639,6 +683,10 @@
       '<div class="r"><label>N° acta en <select id="ubc-acta"><option value="txtCode">Código</option><option value="txtExternalIdentifier">Código externo</option><option value="comentario">Comentario</option><option value="ninguno">no cargar</option></select></label>' +
       '<label>Precinto en <select id="ubc-prec"><option value="comentario">Comentario</option><option value="txtExternalIdentifier">Código externo</option><option value="ninguno">no cargar</option></select></label></div>' +
       '<div class="r"><label><input type="checkbox" id="ubc-dry"> <b>Simulación</b> (completa pero NO guarda)</label><label><input type="checkbox" id="ubc-step"> Pausar en cada fila</label><label><input type="checkbox" id="ubc-inf"> Inferir tipo de vendedor</label><label><input type="checkbox" id="ubc-sim-up"> Subir fotos también en simulación</label></div>' +
+      '<details class="r" id="ubc-reg" style="display:block"><summary>📄 Registro en Google Sheets: <span id="ubc-reg-sum"></span></summary>' +
+      '<div class="r"><label>URL <input type="text" id="ubc-reg-url" placeholder="https://script.google.com/macros/s/…/exec" style="max-width:300px;width:300px"></label></div>' +
+      '<div class="r"><label>Clave <input type="text" id="ubc-reg-clave" size="12"></label><label>Operador <input type="text" id="ubc-reg-op" size="12" placeholder="tu nombre"></label><button id="ubc-reg-test">Probar</button></div>' +
+      '<div class="m" id="ubc-reg-st"></div></details>' +
       '<div class="r"><button class="p" id="ubc-run">▶ Procesar seleccionadas</button><button class="d" id="ubc-stop">■ Frenar</button><button id="ubc-dl">⬇ Log</button></div>' +
       '<div class="r" id="ubc-pastebox" style="display:none;flex-direction:column;align-items:stretch"><textarea id="ubc-pta" rows="6" placeholder="Pegá acá el contenido (JSON o CSV) que copiaste del conversor" style="width:100%;font:11px/1.3 monospace"></textarea><div class="r"><button class="p" id="ubc-pok">Cargar</button><button id="ubc-pno">Cancelar</button></div></div>' +
       '<div class="s" id="ubc-status">Cargá el JSON del conversor y la carpeta de fotos.</div>' +
@@ -685,6 +733,16 @@
     $id('ubc-go').onclick = function () { if (state.gate) { var g = state.gate; state.gate = null; g('go'); render(); } };
     $id('ubc-skip').onclick = function () { if (state.gate) { var g = state.gate; state.gate = null; g('skip'); render(); } };
     $id('ubc-dl').onclick = downloadLog;
+    $id('ubc-reg-url').value = cfg.sheetUrl; $id('ubc-reg-clave').value = cfg.sheetClave; $id('ubc-reg-op').value = cfg.operador;
+    $id('ubc-reg-url').onchange = function (e) { cfg.sheetUrl = e.target.value.trim(); saveCfg(); enviarRegistro(); };
+    $id('ubc-reg-clave').onchange = function (e) { cfg.sheetClave = e.target.value.trim(); saveCfg(); enviarRegistro(); };
+    $id('ubc-reg-op').onchange = function (e) { cfg.operador = e.target.value.trim(); saveCfg(); };
+    $id('ubc-reg-test').onclick = function () {
+      if (!/^https:\/\/script\.google\.com\//.test(cfg.sheetUrl)) { regStatus = 'Pegá primero la URL de la aplicación web (empieza con https://script.google.com/).'; renderRegistro(); return; }
+      enviarRegistro({ operador: cfg.operador, estado: 'prueba', mensaje: 'prueba de conexión desde el panel', version: VERSION });
+    };
+    renderRegistro();
+    enviarRegistro();   // lo que haya quedado en cola de antes
   }
 
   // CSV del conversor (o editado en Excel): columnas en camelCase o snake_case; fotos separadas por "|".
