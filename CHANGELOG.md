@@ -1,5 +1,11 @@
 # Cambios
 
+## Conversor 2026-10-13c
+- Chats exportados **sin archivos** ("<Multimedia omitido>"): las incidencias salen igual, sin fotos, con un aviso para volver a exportar con "Incluir archivos". Si solo faltan algunas fotos, avisa cuántas.
+- Actas escritas "A/S 44752" o "A/s 26518" (además de "AS 00064576").
+- No toma como dirección las líneas de policías, inspectores o avisos ("Oficial Lp 29458", "En Saturación DIC 10", "Se inicia recorrido…"); de "En saturación … por Venancio flores 3485" saca "Venancio flores 3485".
+- Limpia "Nos encontramos en", "Incidencia en", "Se procedió al secuestro de un carro metálico." al principio de la dirección.
+
 ## Conversor 2026-10-13
 - Reconoce chats de Android con **año de 2 cifras** ("8/10/26, 14:46 - …"), con "PM/AM" en mayúsculas, con "(file attached)" y con marca invisible al principio del archivo. Antes esos chats no daban ninguna incidencia.
 - Si el archivo no tiene el formato de un chat de WhatsApp (por ejemplo, se subió el .zip), lo dice en pantalla con las primeras líneas del archivo; si la conversión falla, muestra el motivo en vez de quedarse sin hacer nada.

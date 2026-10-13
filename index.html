@@ -277,7 +277,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-13</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-13c</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -865,10 +865,11 @@
   // Android: "8/10/2026, 14:46 - Nombre: texto"; también año de 2 cifras ("8/10/26") y "2:46 p. m." / "2:46 PM"
   const MSG_RE = /^[\u200e\u200f\ufeff]?(\d{1,2}\/\d{1,2}\/\d{2,4}),\s(\d{1,2}:\d{2})(?:\s([ap])\.?\s?m\.?)?\s-\s(?:([^:]+?):\s)?(.*)$/i;
   const ATTACH_RE = /[\u200e]?(IMG|VID)-\d+-WA\d+\.(jpg|jpeg|mp4|png)\s*\((?:archivo adjunto|file attached)\)/i;
+  const OMITIDO_RE = /<\s*(?:multimedia omitido|media omitted|archivo omitido)\s*>/i;
   const FILENAME_RE = /(IMG|VID)-\d+-WA\d+\.(jpg|jpeg|mp4|png)/i;
-  const AS_RE = /AS[\s/]*?(\d{4,10})/i;
+  const AS_RE = /\bA\s*\/?\s*S[\s/.:]*(\d{4,10})/i;   // AS 00064576 · A/S 44752 · A/s 26518
   const NUM_ORDEN_RE = /\bS\d{6,9}\/\d{2}\b|\bEX-\d{4}-\d+\b/i;
-  const NARRATIVE_PREFIX = /^(recorrido\s+(?:x|por|de)\s+|recorriendo\s+|intersecci[oó]n\s+(?:de\s+)?|(?:d[aá]rsenas?\s+)?frente\s+a\s+|se\s+recorre\s+|se\s+disuade\s+parrilla\s+en\s+|transito\s+\S*\s*|tr[aá]nsito\s+\S*\s*|ya\s+|cerro\s+|corto\s+)+/i;
+  const NARRATIVE_PREFIX = /^(nos\s+encontramos\s+en\s+|incidencia\s+en\s+|(?:se\s+procedi[oó]\s+al\s+)?(?:secuestro\s+(?:de\s+)?)?(?:un\s+)?carro(?:\s+met[aá]lico)?\.?\s+|recorrido\s+(?:x|por|de)\s+|recorriendo\s+|intersecci[oó]n\s+(?:de\s+)?|(?:d[aá]rsenas?\s+)?frente\s+a\s+|se\s+recorre\s+|se\s+disuade\s+parrilla\s+en\s+|transito\s+\S*\s*|tr[aá]nsito\s+\S*\s*|ya\s+|cerro\s+|corto\s+)+/i;
   const NARRATIVE_SUFFIX = /\s+sin\s+(infractor(es)?|in[cs]idencias?|novedad(es)?)\.?$/i;
   const ADDR_RE = /^[A-Za-zÀ-ÿ.\s]{3,30}\d{1,5}\b|^[A-Za-zÀ-ÿ.\s]{3,30}\sy\s[A-Za-zÀ-ÿ.\s]{3,30}$/i;
 
@@ -911,7 +912,7 @@
     const par = s.match(/\(([^)]*\d[^)]*)\)/);            // "Plaza de la república (Av Corrientes 1041)"
     if(par) s = par[1].trim();
     // "Corrientes 872 teatro opera , sin incidencias" -> "Corrientes 872"; "Teatro Gran Rex corrientes 857" -> "corrientes 857"
-    const seg = s.split(",").map(x=>x.trim()).find(x=>/[A-Za-zÀ-ÿ].*\d/.test(x));
+    const seg = s.split(/,|\.\s+/).map(x=>x.trim()).find(x=>/[A-Za-zÀ-ÿ].*\d/.test(x));
     if(seg && /[A-Za-zÀ-ÿ]/.test(seg.charAt(0))){
       const hasta = seg.match(/^(.*?[A-Za-zÀ-ÿ.]\s*\d{1,5})(?!\d)/);
       if(hasta && !/\sy\s/i.test(hasta[1])){
@@ -991,8 +992,8 @@
   // Se decide por chat según de qué lado quedan más cerca las fotos de cada texto, y se unen en un solo mensaje
   // (mismo remitente, hasta 5 minutos de diferencia).
   function unirFotoYTexto(messages){
-    const esFoto = m => m.lines.some(l => ATTACH_RE.test(l) || IOS_ATTACH_RE.test(l));
-    const texto = m => m.lines.map(l => l.replace(ATTACH_RE,"").replace(IOS_ATTACH_RE,"").replace(/[‎‏]/g,"").trim()).filter(Boolean);
+    const esFoto = m => m.lines.some(l => ATTACH_RE.test(l) || IOS_ATTACH_RE.test(l) || OMITIDO_RE.test(l));
+    const texto = m => m.lines.map(l => l.replace(ATTACH_RE,"").replace(IOS_ATTACH_RE,"").replace(OMITIDO_RE,"").replace(/[‎‏]/g,"").trim()).filter(Boolean);
     const minutos = m => {
       const [d,mo,y] = m.date.split("/").map(Number);
       const [h,mi] = m.ampm === null ? m.time.split(":").map(Number) : to24h(m.time, m.ampm || guessAmPm(m.time));
@@ -1094,7 +1095,7 @@
     const es4am = /\b4\s*a\.?\s*m\b/i.test(tituloArchivo) || messages.slice(0,6).some(m0 => /\b4\s*a\.?\s*m\b/i.test((m0.sender||"") + " " + (m0.lines||[]).join(" ")));
 
     let context = null;
-    rows = []; skipped = [];
+    rows = []; skipped = []; let sinArchivos = 0;
 
     for(const msg of messages){
       const fullText = msg.lines.join("\n").trim();
@@ -1116,7 +1117,9 @@
       let iosAtt = null;
       for(const l of msg.lines){ const mm = l.match(IOS_ATTACH_RE); if(mm){ iosAtt = mm[1].trim(); break; } }
       if(iosAtt !== null && !IMG_EXT_RE.test(iosAtt)) continue;      // contactos (.vcf), audios, pdf… no son fotos
-      const am = iosAtt !== null ? true : fullText.match(ATTACH_RE);
+      const omitido = OMITIDO_RE.test(fullText);   // chat exportado sin archivos: la incidencia sale igual, sin fotos
+      if(omitido) sinArchivos++;
+      const am = iosAtt !== null ? true : (fullText.match(ATTACH_RE) || omitido);
       if(!am) continue;
 
       if(context === null){
@@ -1131,7 +1134,7 @@
       const filesOf = () => allFiles.length ? [...new Set(allFiles)] : (filename ? [filename] : []);
       const captionLines = iosAtt !== null
         ? msg.lines.map(l => l.replace(IOS_ATTACH_RE, "").replace(/[\u200e\u200f]/g,"").trim())
-        : msg.lines.filter(l => !ATTACH_RE.test(l));
+        : msg.lines.filter(l => !ATTACH_RE.test(l)).map(l => l.replace(OMITIDO_RE, "").trim());
       const caption = captionLines.filter(l=>l.trim()).join("\n").trim();
 
       const [h, mi] = msg.ampm === null ? msg.time.split(":").map(Number) : to24h(msg.time, msg.ampm || guessAmPm(msg.time));
@@ -1202,13 +1205,21 @@
 
       // checkpoint / address path
       let addr = null;
+      // líneas que no son una dirección: datos de policías e inspectores, avisos de saturación o de recorrido
+      const NO_DIR_RE = /^(of\.?\s|of\s*1|oficial|lp\b|inspector|agentes?\b|en\s+saturaci|equipo\s+tm|recorrida|recorren|se\s+inicia|se\s+da\s+inicio|inician?\b|los\s+inspectores|personal\s+polic|polic[ií]a|precinto|art[ií]culos?\b)/i;
+      const dirAlFinal = ls => {   // "En saturación … por Venancio flores 3485" / "…, Avellaneda 3532."
+        const m = ls.match(/(?:,|\bpor\b|\ben\b)\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ.]*(?:\s+[A-Za-zÀ-ÿ.]+){0,3}\s+\d{1,5})\s*\.?\s*$/i);
+        return m && !/\b(dic|tm|lp|saturaci\w*|of)\b/i.test(m[1]) ? m[1] : null;
+      };
       for(const l of caption.split("\n")){
         const ls = l.trim(); if(!ls) continue;
+        if(NO_DIR_RE.test(ls)){ const fin = dirAlFinal(ls); if(fin){ addr = fin; break; } continue; }
         if(ADDR_RE.test(ls)){ addr = ls; break; }
       }
       if(!addr){
         for(const l of caption.split("\n")){
           const ls = l.trim();
+          if(NO_DIR_RE.test(ls)) continue;
           if(/\d{2,5}\)?\s*$/.test(ls) || /\by\b/i.test(ls) || /\([^)]*[A-Za-zÀ-ÿ][^)]*\d[^)]*\)/.test(ls)){ addr = ls; break; }
         }
       }
@@ -1315,7 +1326,10 @@
     rows.forEach(r => { r.files.sort(); completarContraCatalogo(r); evaluarFila(r); });
     renderResults();
     setStep(rows.length ? 4 : 3);
-    $("parseStatus").textContent = `${rows.length} incidencias detectadas (${attached} fotos extra agrupadas por horario), ${skipped.length} mensajes con foto sin asociar.`;
+    $("parseStatus").textContent = `${rows.length} incidencias detectadas (${attached} fotos extra agrupadas por horario), ${skipped.length} mensajes con foto sin asociar.`
+      + (!sinArchivos ? "" : rows.some(r => r.files.length)
+          ? ` ⚠ ${sinArchivos} foto(s) no vinieron en el export ("Multimedia omitido"): esas incidencias salen sin foto.`
+          : ` ⚠ Este chat se exportó SIN ARCHIVOS (${sinArchivos} fotos dicen "Multimedia omitido"): las incidencias salen sin fotos. Para tenerlas, exportá de nuevo eligiendo "Incluir archivos".`);
     toast("Conversión completa");
   }
 
