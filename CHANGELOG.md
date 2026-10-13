@@ -1,5 +1,8 @@
 # Cambios
 
+## Conversor 2026-10-13d
+- Un mensaje cuya foto dice "<Multimedia omitido>" **no se carga** (sin foto no sirve). Si el chat entero vino sin archivos, no arma ninguna incidencia y avisa "CHAT EXPORTADO SIN ARCHIVOS" para exportarlo de nuevo con "Incluir archivos". Si faltan solo algunas fotos, avisa cuántos mensajes quedaron afuera.
+
 ## Conversor 2026-10-13c
 - Chats exportados **sin archivos** ("<Multimedia omitido>"): las incidencias salen igual, sin fotos, con un aviso para volver a exportar con "Incluir archivos". Si solo faltan algunas fotos, avisa cuántas.
 - Actas escritas "A/S 44752" o "A/s 26518" (además de "AS 00064576").

@@ -277,7 +277,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-13c</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-13d</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -1117,9 +1117,9 @@
       let iosAtt = null;
       for(const l of msg.lines){ const mm = l.match(IOS_ATTACH_RE); if(mm){ iosAtt = mm[1].trim(); break; } }
       if(iosAtt !== null && !IMG_EXT_RE.test(iosAtt)) continue;      // contactos (.vcf), audios, pdf… no son fotos
-      const omitido = OMITIDO_RE.test(fullText);   // chat exportado sin archivos: la incidencia sale igual, sin fotos
-      if(omitido) sinArchivos++;
-      const am = iosAtt !== null ? true : (fullText.match(ATTACH_RE) || omitido);
+      // foto que no vino en el export ("<Multimedia omitido>"): no se arma la incidencia (sin foto no sirve), solo se cuenta para avisar
+      if(OMITIDO_RE.test(fullText) && iosAtt === null && !ATTACH_RE.test(fullText)){ sinArchivos++; continue; }
+      const am = iosAtt !== null ? true : fullText.match(ATTACH_RE);
       if(!am) continue;
 
       if(context === null){
@@ -1327,9 +1327,13 @@
     renderResults();
     setStep(rows.length ? 4 : 3);
     $("parseStatus").textContent = `${rows.length} incidencias detectadas (${attached} fotos extra agrupadas por horario), ${skipped.length} mensajes con foto sin asociar.`
-      + (!sinArchivos ? "" : rows.some(r => r.files.length)
-          ? ` ⚠ ${sinArchivos} foto(s) no vinieron en el export ("Multimedia omitido"): esas incidencias salen sin foto.`
-          : ` ⚠ Este chat se exportó SIN ARCHIVOS (${sinArchivos} fotos dicen "Multimedia omitido"): las incidencias salen sin fotos. Para tenerlas, exportá de nuevo eligiendo "Incluir archivos".`);
+      + (!sinArchivos ? "" : rows.length
+          ? ` ⚠ ${sinArchivos} mensaje(s) con "Multimedia omitido" (la foto no vino en el export) no se cargaron.`
+          : "");
+    if(sinArchivos && !rows.length){
+      $("parseStatus").textContent = `⚠ CHAT EXPORTADO SIN ARCHIVOS: las ${sinArchivos} fotos dicen "Multimedia omitido", así que no se arma ninguna incidencia. Exportalo de nuevo desde el celular eligiendo "Incluir archivos".`;
+      toast("Chat exportado sin archivos");
+    }
     toast("Conversión completa");
   }
 
