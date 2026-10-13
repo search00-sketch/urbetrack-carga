@@ -1,5 +1,9 @@
 # Cambios
 
+## Conversor 2026-10-13
+- Reconoce chats de Android con **año de 2 cifras** ("8/10/26, 14:46 - …"), con "PM/AM" en mayúsculas, con "(file attached)" y con marca invisible al principio del archivo. Antes esos chats no daban ninguna incidencia.
+- Si el archivo no tiene el formato de un chat de WhatsApp (por ejemplo, se subió el .zip), lo dice en pantalla con las primeras líneas del archivo; si la conversión falla, muestra el motivo en vez de quedarse sin hacer nada.
+
 ## Conversor 2026-10-08e
 - **Feriados**: campo editable en "3 · Procesar" (dd/mm/aaaa, separados por coma; queda guardado en el navegador). Un feriado cuenta como sábado/domingo: DIURNO SADOFE de 7 a 19 h y NOCTURNO SADOFE el resto; la víspera desde las 19 h y la madrugada siguiente (antes de las 7) también son NOCTURNO SADOFE.
 - Viene cargado con lo que queda de 2026: 12/10, 23/11, 08/12 y 25/12.

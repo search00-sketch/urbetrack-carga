@@ -277,7 +277,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-08e</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-13</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -862,8 +862,9 @@
   }
 
   // ---------- parsing engine ----------
-  const MSG_RE = /^(\d{1,2}\/\d{1,2}\/\d{4}),\s(\d{1,2}:\d{2})(?:\s([ap])\.?\s?m\.?)?\s-\s(?:([^:]+?):\s)?(.*)$/;
-  const ATTACH_RE = /[\u200e]?(IMG|VID)-\d+-WA\d+\.(jpg|jpeg|mp4|png)\s*\(archivo adjunto\)/i;
+  // Android: "8/10/2026, 14:46 - Nombre: texto"; también año de 2 cifras ("8/10/26") y "2:46 p. m." / "2:46 PM"
+  const MSG_RE = /^[\u200e\u200f\ufeff]?(\d{1,2}\/\d{1,2}\/\d{2,4}),\s(\d{1,2}:\d{2})(?:\s([ap])\.?\s?m\.?)?\s-\s(?:([^:]+?):\s)?(.*)$/i;
+  const ATTACH_RE = /[\u200e]?(IMG|VID)-\d+-WA\d+\.(jpg|jpeg|mp4|png)\s*\((?:archivo adjunto|file attached)\)/i;
   const FILENAME_RE = /(IMG|VID)-\d+-WA\d+\.(jpg|jpeg|mp4|png)/i;
   const AS_RE = /AS[\s/]*?(\d{4,10})/i;
   const NUM_ORDEN_RE = /\bS\d{6,9}\/\d{2}\b|\bEX-\d{4}-\d+\b/i;
@@ -972,7 +973,10 @@
       }
       const m = line.match(MSG_RE);
       if(m){
-        const [, date, time, ampm, sender, txt] = m;
+        const [, date0, time, ampm0, sender, txt] = m;
+        const [dd0, mm0, yy0] = date0.split("/");
+        const date = `${+dd0}/${+mm0}/${fullYear(yy0)}`;   // "08/10/26" → "8/10/2026"
+        const ampm = ampm0 ? ampm0.toLowerCase() : ampm0;
         messages.push({date, time, ampm, sender: sender?sender.trim():null, lines: txt?[txt]:[]});
       } else if(messages.length){
         messages[messages.length-1].lines.push(line);
@@ -1032,7 +1036,21 @@
   }
 
   function runParse(){
+    try{ runParseInner(); }
+    catch(e){
+      console.error(e);
+      $("parseStatus").textContent = "⚠ No pude convertir el chat: " + (e && e.message || e) + ". Mandá el .txt al responsable.";
+      toast("Error al convertir");
+    }
+  }
+  function runParseInner(){
     if(!chatText){ toast("Subí un chat primero"); return; }
+    if(!parseMessages(chatText).length){
+      rows = []; skipped = []; renderResults();
+      $("parseStatus").textContent = "⚠ No reconozco el formato de este archivo: ¿es el .txt exportado de WhatsApp (no el .zip)? Las primeras líneas dicen: " + chatText.split(/\r?\n/).slice(0,2).join(" / ").slice(0,160);
+      toast("Formato de chat no reconocido");
+      return;
+    }
     const profile = readProfileFromForm();
     profiles = profiles.map(p=>p.id===profile.id ? profile : p);
     saveProfiles(profiles);
