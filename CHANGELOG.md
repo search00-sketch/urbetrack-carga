@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.12.0 (script) y conversor 2026-10-15
+- **Fotos de más de 2 MB** (límite de Urbetrack, típico de iPhone): el panel las achica antes de subirlas, con el mismo nombre. Era el error más frecuente.
+- Videos y otros archivos que Urbetrack no acepta se omiten con aviso en vez de frenar la fila.
+- Nombres de foto con marcas invisibles de WhatsApp ("\u200eIMG-…") ya no dan "faltan fotos".
+- **Duplicados**: el conversor une en una sola incidencia los mensajes con la misma dirección y grupo dentro de 5 minutos (dos inspectores o un reenvío), juntando las fotos; no une secuestros con actas distintas. El panel además destilda como "repetida" una fila con la misma dirección y hora que otra del archivo o que una ya cargada.
+- Direcciones: si el geocodificador no la encuentra, el panel prueba sin tildes ("Solís" → "Solis", "Arribeños" → "Arribenos"), sin "Av." y con la esquina al revés ("tacuari y piedras" → "piedras y tacuari"). Una altura 0 ("Tramo 0") cuenta como sin altura.
+
 ## Conversor 2026-10-13d
 - Un mensaje cuya foto dice "<Multimedia omitido>" **no se carga** (sin foto no sirve). Si el chat entero vino sin archivos, no arma ninguna incidencia y avisa "CHAT EXPORTADO SIN ARCHIVOS" para exportarlo de nuevo con "Incluir archivos". Si faltan solo algunas fotos, avisa cuántos mensajes quedaron afuera.
 

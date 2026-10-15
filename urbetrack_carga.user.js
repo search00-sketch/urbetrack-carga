@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Urbetrack – Carga automática desde WhatsApp (GOVNA)
 // @namespace    dgfis-govna
-// @version      0.11.1
+// @version      0.12.0
 // @description  Carga incidencias en "Nueva incidencia" de Urbetrack a partir del JSON del conversor WhatsApp → Urbetrack, incluyendo fotos.
 // @match        https://gcaba.urbetrack.com/HigieneUrbana/Soporte/Default.aspx*
 // @run-at       document-idle
@@ -35,7 +35,7 @@
   var LS_QUEUE = 'ub_carga_sheet_queue_v1';
   var LS_CFG = 'ub_carga_cfg_v1', LS_DONE = 'ub_carga_done_v1', LS_ROWS = 'ub_carga_rows_v1', LS_LOG = 'ub_carga_log_v1';
   // versión que se muestra en el panel: la real del encabezado (Tampermonkey), o esta si se pegó en la consola
-  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.11.1';
+  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.12.0';
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var $id = function (id) { return document.getElementById(id); };
   function norm(s) {
@@ -46,6 +46,10 @@
   function lsGet(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
   function hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) { h = ((h << 5) + h + s.charCodeAt(i)) | 0; } return (h >>> 0).toString(36); }
+  // nombre de archivo sin marcas invisibles de WhatsApp ("\u200eIMG-…jpg")
+  function fileKey(n) { return String(n || '').replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim().toLowerCase(); }
+  // misma fecha/hora y misma dirección = la misma incidencia aunque el texto cambie (dos inspectores reportando lo mismo)
+  function rowKey2(r) { return [r.datetime || (r.date + ' ' + r.time), norm(r.direccion)].join('|'); }
   function rowKey(r) { return [r.datetime || (r.date + ' ' + r.time), norm(r.direccion), hash(String(r.caption || ''))].join('|'); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
@@ -69,6 +73,7 @@
 
   var state = { rows: [], photos: new Map(), running: false, stop: false, log: [], gate: null };
   var done = lsGet(LS_DONE, {});
+  var LS_DONE2 = 'ub_carga_done2_v1', done2 = lsGet(LS_DONE2, {});
 
   // ------------------------------------------------------------------ postbacks (ASP.NET UpdatePanel)
   function prm() { return window.Sys && Sys.WebForms && Sys.WebForms.PageRequestManager.getInstance(); }
@@ -184,16 +189,25 @@
   // Variantes por si el geocodificador no encuentra el texto tal cual: sin "Recorrido x", "Intersección", "frente a"…,
   // y solo la última palabra + altura ("Carola Lorenzini 300" → "Lorenzini 300").
   function variantesDireccion(t) {
-    var v = [t];
+    var v = [];
+    function add(x) { x = String(x || '').replace(/\s+/g, ' ').trim(); if (x && v.indexOf(x) < 0) v.push(x); }
+    add(t);
     var s2 = t.replace(/^(recorrido|recorriendo)\s+(x|por|de)\s+/i, '').replace(/^intersecci[oó]n\s+(de\s+)?/i, '').replace(/^(frente\s+a|esquina|altura)\s+/i, '').trim();
-    if (s2 && v.indexOf(s2) < 0) v.push(s2);
-    var m = s2.match(/(\S+)\s+(\d{1,5})$/);
-    if (m && s2.split(/\s+/).length > 2 && v.indexOf(m[1] + ' ' + m[2]) < 0) v.push(m[1] + ' ' + m[2]);
+    add(s2);
+    var sinTilde = s2.normalize('NFD').replace(/[\u0300-\u036f]/g, '');   // "Solís 50" → "Solis 50", "Arribeños" → "Arribenos"
+    add(sinTilde);
+    var sinAv = sinTilde.replace(/\bav(enida)?\.?\s+/ig, '');             // "Av. Callao y Av. Cordoba" → "Callao y Cordoba"
+    add(sinAv);
+    var esq = sinAv.match(/^(.+?)\s+y\s+(.+)$/i);                            // esquina al revés: "tacuari y piedras" → "piedras y tacuari"
+    if (esq) add(esq[2] + ' y ' + esq[1]);
+    var m = sinTilde.match(/(\S+)\s+(\d{1,5})$/);
+    if (m && sinTilde.split(/\s+/).length > 2) add(m[1] + ' ' + m[2]);
     return v;
   }
+
   async function setAddress(text) {
     text = String(text || '').trim();
-    if (!/\d/.test(text) && !/\sy\s/i.test(text)) throw new Error('La dirección "' + text + '" no tiene altura: corregila en el conversor (calle y número)');
+    if ((!/\d/.test(text) || /\s0+$/.test(text)) && !/\sy\s/i.test(text)) throw new Error('La dirección "' + text + '" no tiene altura: corregila en el conversor (calle y número)');
     var vs = variantesDireccion(text), last = null;
     for (var i = 0; i < vs.length; i++) {
       try {
@@ -412,6 +426,23 @@
     return have === want && boxes.every(function (c) { return c.checked; });
   }
   // Sube las fotos ANTES de guardar: quedan en "Imágenes de aviso" y se asocian al guardar la incidencia.
+  var LIMITE_FOTO = 1.9 * 1024 * 1024;
+  async function achicarFoto(file) {
+    try {
+      var bmp = await createImageBitmap(file);
+      var lados = [2400, 2000, 1600, 1280, 1024], calidades = [0.85, 0.75, 0.65];
+      for (var i = 0; i < lados.length; i++) {
+        var k = Math.min(1, lados[i] / Math.max(bmp.width, bmp.height));
+        var c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+        for (var j = 0; j < calidades.length; j++) {
+          var blob = await new Promise(function (res) { c.toBlob(res, 'image/jpeg', calidades[j]); });
+          if (blob && blob.size <= LIMITE_FOTO) return new File([blob], file.name, { type: 'image/jpeg', lastModified: file.lastModified });
+        }
+      }
+    } catch (e) { /* formato que el navegador no puede abrir (ej. HEIC): se sube como está y Urbetrack avisa */ }
+    return file;
+  }
   async function uploadPhotos(files) {
     var ifr = $id('iFileUpload'), out = [];
     for (var i = 0; i < files.length; i++) {
@@ -573,10 +604,20 @@
     if (diffs.length) throw new Error('Verificación fallida → ' + diffs.join('; '));
     var warn = fill.warnings.join('; ');
 
-    var files = (r.files || (r.file ? [r.file] : [])).map(function (n) { return { name: n, file: state.photos.get(n.toLowerCase()) }; });
+    var todos = (r.files || (r.file ? [r.file] : [])).map(function (n) { return String(n).replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim(); }).filter(Boolean);
+    // Urbetrack no acepta videos ni otros archivos: se omiten con aviso
+    var noFoto = todos.filter(function (n) { return !/\.(jpe?g|png|webp|gif|bmp)$/i.test(n); });
+    var files = todos.filter(function (n) { return noFoto.indexOf(n) < 0; }).map(function (n) { return { name: n, file: state.photos.get(fileKey(n)) }; });
     var missing = files.filter(function (x) { return !x.file; }).map(function (x) { return x.name; });
     if (missing.length && !cfg.dryRun) throw new Error('Faltan fotos en la carpeta elegida: ' + missing.join(', '));
     if (missing.length) warn += (warn ? '; ' : '') + 'faltan fotos: ' + missing.join(', ');
+    if (noFoto.length) warn += (warn ? '; ' : '') + 'se omitió (Urbetrack no lo acepta): ' + noFoto.join(', ');
+    // Urbetrack acepta hasta 2 MB por foto: las más pesadas se achican antes de subirlas
+    var achicadas = 0;
+    for (var fi = 0; fi < files.length; fi++) {
+      if (files[fi].file && files[fi].file.size > LIMITE_FOTO) { files[fi].file = await achicarFoto(files[fi].file); achicadas++; }
+    }
+    if (achicadas) warn += (warn ? '; ' : '') + achicadas + ' foto(s) achicada(s) a menos de 2 MB';
 
     // ---- fotos: se suben antes de guardar (quedan en "Imágenes de aviso")
     var upNote = '';
@@ -640,6 +681,7 @@
       throw new Error('No hay señal de que se haya guardado (sin N° de incidencia y las fotos siguen pendientes, ' + secs(tSave) + '). Info: ' + info + ' ' + guard.alerts.join(' | ') + ' · Página dice: ' + (problemasVisibles() || 'nada visible'));
     }
     done[key] = { id: id || '?', t: Date.now() }; lsSet(LS_DONE, done);
+    done2[rowKey2(r)] = { id: id || '?', fila: idx + 1, t: Date.now() }; lsSet(LS_DONE2, done2);
     if (!how) {
       sessionStorage.removeItem('ub_carga_pending');
       state.stop = true;
@@ -821,7 +863,15 @@
       state.rows = data.map(function (r) {
         r._sel = true; r._estado = ''; r._msg = '';
         if (done[rowKey(r)]) { r._estado = 'repetida'; r._sel = false; r._msg = 'ya cargada antes (incidencia ' + done[rowKey(r)].id + ')'; }
+        else if (done2[rowKey2(r)]) { r._estado = 'repetida'; r._sel = false; r._msg = 'ya se cargó una incidencia con la misma dirección y hora'; }
         return r;
+      });
+      // dentro del mismo archivo: misma dirección y hora que una fila anterior → se destilda (es la misma incidencia)
+      var vistas = {};
+      state.rows.forEach(function (r, i) {
+        var k2 = rowKey2(r);
+        if (vistas[k2] !== undefined && r._estado !== 'repetida') { r._estado = 'repetida'; r._sel = false; r._msg = 'misma dirección y hora que la fila ' + (vistas[k2] + 1); }
+        else if (vistas[k2] === undefined) vistas[k2] = i;
       });
       setStatus(state.rows.length + ' filas cargadas de ' + (name || 'los datos pegados') + '.');
       persistRows();
@@ -839,7 +889,7 @@
 
   function loadPhotos(files) {
     state.photos = new Map();
-    files.forEach(function (f) { state.photos.set(f.name.toLowerCase(), f); });
+    files.forEach(function (f) { state.photos.set(fileKey(f.name), f); });
     setStatus(state.photos.size + ' archivos en la carpeta de fotos. Guardándolos en el navegador…');
     persistPhotos();
     render();
@@ -911,6 +961,7 @@
       return;
     }
     done[pend.key] = { id: '?', t: Date.now() }; lsSet(LS_DONE, done);
+    if (state.rows[idx]) { done2[rowKey2(state.rows[idx])] = { id: '?', fila: pend.fila, t: Date.now() }; lsSet(LS_DONE2, done2); }
     if (state.rows[idx]._estado !== 'guardada') log(idx, 'guardada', 'guardada (la página se recargó; el N° de incidencia no se pudo leer: verificalo en el export de Urbetrack)');
     try { await clearPending(); } catch (e) { }
     var rest = runRec && runRec.indices ? runRec.indices.slice(runRec.pos + 1) : [];

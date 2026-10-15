@@ -277,7 +277,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-13d</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-15</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -1323,10 +1323,26 @@
       attached++;
       return false;
     });
-    rows.forEach(r => { r.files.sort(); completarContraCatalogo(r); evaluarFila(r); });
+    // La misma incidencia reportada dos veces (dos inspectores, o un reenvío): misma dirección y grupo, hasta 5 minutos
+    // de diferencia y sin actas distintas → una sola fila con todas las fotos (si no, Urbetrack queda con duplicados).
+    const dirClave = x => normCat(x).replace(/\bAV(ENIDA)?\b/g, "").replace(/\s+/g, " ").trim();
+    let unidos = 0;
+    rows = rows.reduce((acc, r) => {
+      const k = dirClave(r.direccion);
+      const m = k && acc.find(x => dirClave(x.direccion) === k && x.grupo === r.grupo && Math.abs(x.ts - r.ts) <= 5 * 60000
+        && !(x.codigo && r.codigo && x.codigo !== r.codigo));
+      if(!m){ acc.push(r); return acc; }
+      r.files.forEach(f => { if(!m.files.includes(f)) m.files.push(f); });
+      if(r.caption && !m.caption.includes(r.caption)) m.caption += "\n" + r.caption;
+      if(!m.codigo && r.codigo) m.codigo = r.codigo;
+      unidos++;
+      return acc;
+    }, []);
+    rows.forEach(r => { r.files = [...new Set(r.files.map(f => String(f).replace(/[\u200e\u200f\u202a-\u202e]/g, "").trim()))].sort(); completarContraCatalogo(r); evaluarFila(r); });
     renderResults();
     setStep(rows.length ? 4 : 3);
     $("parseStatus").textContent = `${rows.length} incidencias detectadas (${attached} fotos extra agrupadas por horario), ${skipped.length} mensajes con foto sin asociar.`
+      + (unidos ? ` ${unidos} mensaje(s) repetido(s) (misma dirección y hora) se unieron a su incidencia.` : "")
       + (!sinArchivos ? "" : rows.length
           ? ` ⚠ ${sinArchivos} mensaje(s) con "Multimedia omitido" (la foto no vino en el export) no se cargaron.`
           : "");
@@ -1411,7 +1427,7 @@
   function evaluarFila(r){
     const obs = [], g = CATALOGO_UB.catalogo[r.grupo], dir = String(r.direccion || "").trim();
     if(!dir) obs.push("sin dirección");
-    else if(!/\d/.test(dir) && !/\sy\s/i.test(dir)) obs.push("dirección sin altura");
+    else if((!/\d/.test(dir) || /\s0+$/.test(dir)) && !/\sy\s/i.test(dir)) obs.push("dirección sin altura");
     if(!g) obs.push(r.grupo ? "grupo fuera de catálogo" : "falta grupo");
     else if(!r.tipoServicio) obs.push("falta tipo");
     else if(!g[r.tipoServicio]) obs.push("tipo fuera de catálogo");
