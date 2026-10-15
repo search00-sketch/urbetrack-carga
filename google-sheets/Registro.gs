@@ -27,7 +27,11 @@ function doPost(e) {
   var clave = PropertiesService.getScriptProperties().getProperty('CLAVE');
   if (!clave || datos.clave !== clave) return respuesta('error: clave incorrecta');
   var filas = (datos.filas || []).map(function (f) {
-    return COLUMNAS.map(function (c) { return c === 'registrado' ? new Date() : (f[c] == null ? '' : String(f[c])); });
+    return COLUMNAS.map(function (c) {
+      if (c === 'registrado') return new Date();
+      var v = f[c] == null ? '' : String(f[c]);
+      return c === 'version' && v ? 'v' + v : v;   // sin la "v", Sheets toma "0.11.1" como una fecha
+    });
   });
   if (!filas.length) return respuesta('ok: 0');
   var lock = LockService.getScriptLock();
