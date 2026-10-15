@@ -1,5 +1,8 @@
 # Cambios
 
+## Conversor 2026-10-15b
+- La columna **Código / precinto / orden** de la tabla ahora es editable: tres campos (acta AS…/AI…, precinto, N° de orden SAP o reclamo) para corregir lo que el conversor tomó mal antes de exportar. El acta se pasa a mayúsculas y sin espacios al salir del campo ("as 00064576" o "A/S 44752" → "AS00064576", "AS44752"), respetando los ceros. Al completar el acta, la fila deja de marcar "falta N° de acta".
+
 ## 0.12.0 (script) y conversor 2026-10-15
 - **Fotos de más de 2 MB** (límite de Urbetrack, típico de iPhone): el panel las achica antes de subirlas, con el mismo nombre. Era el error más frecuente.
 - Videos y otros archivos que Urbetrack no acepta se omiten con aviso en vez de frenar la fila.

@@ -231,6 +231,7 @@
   td select[data-f="grupo"]{ min-width:175px; }
   td select[data-f="tipoServicio"]{ min-width:170px; }
   td select[data-f="detalleServicio"]{ min-width:190px; }
+  td.codigos input{ display:block; width:150px; margin:2px 0; font-size:11.5px; padding:3px 5px; }
   .pill{
     display:inline-flex; align-items:center; padding:2px 8px; border-radius:100px;
     font-size:10.5px; font-weight:600; letter-spacing:.02em; white-space:nowrap; border:1px solid transparent;
@@ -277,7 +278,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-15</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-15b</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -1461,7 +1462,11 @@
         <td><select data-f="tipoServicio"></select></td>
         <td><select data-f="detalleServicio"></select></td>
         <td><input type="text" data-f="direccion" value="${escAttr(r.direccion||'')}" style="min-width:170px" /></td>
-        <td class="num">${escHtml(codeParts.join(" / "))}</td>
+        <td class="num codigos">
+          <input type="text" data-f="codigo" placeholder="Acta (AS… / AI…)" value="${escAttr(r.codigo||'')}" title="N° de acta de secuestro o intimación" />
+          <input type="text" data-f="precinto" placeholder="Precinto" value="${escAttr(r.precinto||'')}" title="Precinto" />
+          <input type="text" data-f="numeroOrdenSap" placeholder="N° orden SAP / reclamo" value="${escAttr(r.numeroOrdenSap||'')}" title="N° de orden SAP o de reclamo" />
+        </td>
         <td class="file-cell" title="${escAttr((r.files||[]).join(', '))}">${(r.files||[]).length ? (r.files.length + ' foto' + (r.files.length>1?'s':'')) : '—'}</td>
         <td class="caption-cell">${escHtml(r.caption)}</td>
         <td>${pillEstado(r)}</td>
@@ -1497,10 +1502,16 @@
       selG.addEventListener("change", ()=>{ r.grupo = selG.value; r.tipoServicio = ""; r.detalleServicio = ""; solo(); refill(); marcar(); });
       selT.addEventListener("change", ()=>{ r.tipoServicio = selT.value; r.detalleServicio = ""; solo(); refill(); marcar(); });
       selD.addEventListener("change", ()=>{ r.detalleServicio = selD.value; marcar(); });
+      // acta en mayúsculas y sin espacios al salir del campo ("as 00064576" → "AS00064576"); los ceros se respetan
+      tr.querySelectorAll('input[data-f="codigo"]').forEach(inp=>inp.addEventListener("change", ()=>{
+          inp.value = inp.value.replace(/\s+/g, "").replace(/^A\/?S/i, "AS").replace(/^A\/?I/i, "AI").toUpperCase();
+          r.codigo = inp.value || null;
+        }));
       tr.querySelectorAll("input[data-f]").forEach(inp=>{
         inp.addEventListener("input", ()=>{
           r[inp.dataset.f] = inp.value;
-          if(inp.dataset.f === "direccion"){
+          if(["codigo","precinto","numeroOrdenSap"].includes(inp.dataset.f)) r[inp.dataset.f] = inp.value.trim() || null;
+          if(["direccion","codigo"].includes(inp.dataset.f)){
             evaluarFila(r);
             tr.className = r.estado === "OK" ? "" : "row-warn";
             tr.children[10].innerHTML = pillEstado(r);
