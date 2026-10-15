@@ -43,6 +43,7 @@ function doPost(e) {
     if (hoja.getLastRow() >= 2) hoja.getRange(desde, colId, hoja.getLastRow() - desde + 1, 1).getValues().forEach(function (v) { if (v[0]) vistos[v[0]] = 1; });
     filas = filas.filter(function (f) { var id = f[colId - 1]; if (!id) return true; if (vistos[id]) return false; vistos[id] = 1; return true; });
     if (filas.length) hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, COLUMNAS.length).setValues(filas);
+    SpreadsheetApp.flush();   // que el próximo envío vea estas filas antes de buscar ids repetidos
   } finally { lock.releaseLock(); }
   return respuesta('ok: ' + filas.length);
 }
