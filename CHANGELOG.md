@@ -1,5 +1,10 @@
 # Cambios
 
+## Conversor 2026-10-30
+- Mensajes en **un solo renglón** con guiones o "en": "Punto crítico Hospital Rivadavia en Av. Las Heras al 2700 - sin incidencias", "Punto crítico Puente Pacífico … - Av. Santa Fe 4650 - sin incidencias". Toma la parte con calle y número como dirección y el nombre (Hospital Rivadavia, Sanatorio CEMIC…) como punto. Antes quedaban en "sin dirección detectada".
+- "Av. Las Heras al 2700" → "Av. Las Heras 2700".
+- Corregido: desde la versión 2026-10-13c una dirección con "Av." perdía el "Av." (el punto se tomaba como fin de frase). Ahora no corta en abreviaturas (Av., Gral., Pte., Dr., etc.).
+
 ## Conversor 2026-10-15b
 - La columna **Código / precinto / orden** de la tabla ahora es editable: tres campos (acta AS…/AI…, precinto, N° de orden SAP o reclamo) para corregir lo que el conversor tomó mal antes de exportar. El acta se pasa a mayúsculas y sin espacios al salir del campo ("as 00064576" o "A/S 44752" → "AS00064576", "AS44752"), respetando los ceros. Al completar el acta, la fila deja de marcar "falta N° de acta".
 

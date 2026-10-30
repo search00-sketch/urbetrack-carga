@@ -278,7 +278,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-15b</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-30</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -913,7 +913,8 @@
     const par = s.match(/\(([^)]*\d[^)]*)\)/);            // "Plaza de la república (Av Corrientes 1041)"
     if(par) s = par[1].trim();
     // "Corrientes 872 teatro opera , sin incidencias" -> "Corrientes 872"; "Teatro Gran Rex corrientes 857" -> "corrientes 857"
-    const seg = s.split(/,|\.\s+/).map(x=>x.trim()).find(x=>/[A-Za-zÀ-ÿ].*\d/.test(x));
+    // corta en comas y en puntos que cierran una frase, pero no en abreviaturas ("Av. Santa Fe", "Gral. Paz", "Pte. Perón")
+    const seg = s.split(/,|(?<!\b(?:av|avda|gral|pte|pres|dr|sta|sto|cnel|tte|int|ing|cap|mtro|lic|sgto|alte|cmte|gob))\.\s+/i).map(x=>x.trim()).find(x=>/[A-Za-zÀ-ÿ].*\d/.test(x));
     if(seg && /[A-Za-zÀ-ÿ]/.test(seg.charAt(0))){
       const hasta = seg.match(/^(.*?[A-Za-zÀ-ÿ.]\s*\d{1,5})(?!\d)/);
       if(hasta && !/\sy\s/i.test(hasta[1])){
@@ -933,6 +934,7 @@
       if(re) s2 = s2.replace(re, good);
     });
     s2 = s2.replace(/\bAv\.(\S)/g, "Av. $1").replace(/^av\s+/i, "Av. ");
+    s2 = s2.replace(/\s+al\s+(\d{1,5})\b/i, " $1");   // "Av. Las Heras al 2700" → "Av. Las Heras 2700"
     const inter = s2.match(/^(.+?)\s+y\s+(.+?)\s+(\d{1,5})$/i);   // "Lavalle y Pellegrini 500" -> "Pellegrini 500"
     if(inter) s2 = `${inter[2]} ${inter[3]}`;
     s2 = s2.replace(/\s+/g," ").trim().replace(/^\.+|\.+$/g,"").trim();
@@ -1225,6 +1227,19 @@
         }
       }
       if(!addr){
+        // Todo en un renglón, separado por guiones o "en": "Punto crítico Hospital Rivadavia en Av. Las Heras al 2700 - sin incidencias",
+        // "Punto crítico Puente Pacífico … Palermo - Av. Santa Fe 4650 - sin incidencias" → se busca la parte con calle y número.
+        const partes = [];
+        caption.split("\n").forEach(l => l.split(/\s+[-–—|]\s+/).forEach(p => {
+          p = p.trim(); if(!p) return;
+          const en = p.split(/\s+en\s+/i);
+          if(en.length > 1) partes.push(en[en.length - 1]);
+          partes.push(p);
+        }));
+        addr = partes.map(p => p.replace(/\s+al\s+(\d)/i, " $1").replace(/[.\s]+$/, ""))
+          .find(p => !NO_DIR_RE.test(p) && !/^(punto\s*cr|hoja\s*de\s*ruta)/i.test(p) && /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ.\s]{2,40}\s\d{1,5}$/.test(p)) || null;
+      }
+      if(!addr){
         skipped.push({date: msg.date, time: msg.time, file: filename, caption});
         continue;
       }
@@ -1286,7 +1301,11 @@
           if(/^punto/.test(hdrKind) && ai > 0 && i < ai) { punto = (punto ? punto + " " : "") + l; return; }
           extra.push(l);
         });
-        if(/^punto/.test(hdrKind) && !punto){ punto = hdr.replace(headRe,"").replace(/^[\s:.-]+/,"").trim(); }
+        if(/^punto/.test(hdrKind) && !punto){
+          // el nombre del punto: lo que sigue a "Punto crítico" hasta el primer guion o " en " ("Hospital Rivadavia", "Sanatorio CEMIC")
+          punto = hdr.replace(headRe,"").replace(/^[\s:.-]+/,"").split(/\s+[-–—|]\s+/)[0].split(/\s+en\s+/i)[0].trim();
+          if(/\d/.test(punto) && punto.length > 3 && canonicalizeAddress(punto, profile) === addr) punto = "";
+        }
         comentario = extra.join(" | ");
         usarComentario = "SI";
       }
