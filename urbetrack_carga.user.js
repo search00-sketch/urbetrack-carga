@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Urbetrack – Carga automática desde WhatsApp (GOVNA)
 // @namespace    dgfis-govna
-// @version      0.13.0
+// @version      0.13.1
 // @description  Carga incidencias en "Nueva incidencia" de Urbetrack a partir del JSON del conversor WhatsApp → Urbetrack, incluyendo fotos.
 // @match        https://gcaba.urbetrack.com/HigieneUrbana/Soporte/Default.aspx*
 // @run-at       document-idle
@@ -35,7 +35,7 @@
   var LS_QUEUE = 'ub_carga_sheet_queue_v1';
   var LS_CFG = 'ub_carga_cfg_v1', LS_DONE = 'ub_carga_done_v1', LS_ROWS = 'ub_carga_rows_v1', LS_LOG = 'ub_carga_log_v1';
   // versión que se muestra en el panel: la real del encabezado (Tampermonkey), o esta si se pegó en la consola
-  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.13.0';
+  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.13.1';
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var $id = function (id) { return document.getElementById(id); };
   function norm(s) {
@@ -200,6 +200,15 @@
     add(sinAv);
     var esq = sinAv.match(/^(.+?)\s+y\s+(.+)$/i);                            // esquina al revés: "tacuari y piedras" → "piedras y tacuari"
     if (esq) add(esq[2] + ' y ' + esq[1]);
+    // Urbetrack nombra las calles "APELLIDO, NOMBRE" (TRELLES, MANUEL RICARDO · JUSTO, JUAN B. AV.):
+    // "Manuel R Trelles 2800" → "Trelles, Manuel R 2800"; sin iniciales sueltas → "Manuel Trelles 2800"
+    var pa = sinAv.match(/^(.+?)\s+(\d{1,5})$/);
+    if (pa) {
+      var ws = pa[1].split(/\s+/);
+      if (ws.length >= 2) add(ws[ws.length - 1] + ', ' + ws.slice(0, -1).join(' ') + ' ' + pa[2]);
+      var sinInicial = ws.filter(function (w) { return !/^[A-Za-z]\.?$/.test(w); });
+      if (sinInicial.length && sinInicial.length < ws.length) add(sinInicial.join(' ') + ' ' + pa[2]);
+    }
     var m = sinTilde.match(/(\S+)\s+(\d{1,5})$/);
     if (m && sinTilde.split(/\s+/).length > 2) add(m[1] + ' ' + m[2]);
     return v;

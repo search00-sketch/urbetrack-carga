@@ -1,5 +1,8 @@
 # Cambios
 
+## 0.13.1
+- Direcciones con nombre y apellido: si no la encuentra, el panel prueba como las nombra Urbetrack ("Apellido, Nombre": "Manuel R Trelles 2800" → "Trelles, Manuel R 2800") y sin iniciales sueltas ("Manuel Trelles 2800"), además de "Trelles 2800".
+
 ## 0.13.0 (script) y conversor 2026-10-30b
 - **Direcciones que fallan de a ratos**: el geocodificador de Urbetrack a veces no responde (ej. Ramos Mejía: 186 guardadas y 47 errores entre el 15 y el 30/10). El panel espera más (15 s) y, si igual falla, reintenta la fila una vez a los 3 s.
 - El registro ya no anota dos veces una fila cuando Urbetrack recarga la página justo después de guardar.
