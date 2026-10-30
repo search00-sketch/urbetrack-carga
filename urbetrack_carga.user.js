@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Urbetrack – Carga automática desde WhatsApp (GOVNA)
 // @namespace    dgfis-govna
-// @version      0.12.0
+// @version      0.13.0
 // @description  Carga incidencias en "Nueva incidencia" de Urbetrack a partir del JSON del conversor WhatsApp → Urbetrack, incluyendo fotos.
 // @match        https://gcaba.urbetrack.com/HigieneUrbana/Soporte/Default.aspx*
 // @run-at       document-idle
@@ -35,7 +35,7 @@
   var LS_QUEUE = 'ub_carga_sheet_queue_v1';
   var LS_CFG = 'ub_carga_cfg_v1', LS_DONE = 'ub_carga_done_v1', LS_ROWS = 'ub_carga_rows_v1', LS_LOG = 'ub_carga_log_v1';
   // versión que se muestra en el panel: la real del encabezado (Tampermonkey), o esta si se pegó en la consola
-  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.12.0';
+  var VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '0.13.0';
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var $id = function (id) { return document.getElementById(id); };
   function norm(s) {
@@ -227,7 +227,7 @@
     a.focus(); a.value = text;
     $j(a).autocomplete('search', text);
     var items = [], t0 = Date.now();
-    while (Date.now() - t0 < 10000) {
+    while (Date.now() - t0 < 15000) {
       await sleep(300);
       items = Array.prototype.slice.call(widget.querySelectorAll('li')).filter(function (li) { return li.textContent.trim(); });
       if (items.length) break;
@@ -244,7 +244,7 @@
     target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     t0 = Date.now();
-    while (Date.now() - t0 < 8000 && !$id('hidLatLon').value) await sleep(250);
+    while (Date.now() - t0 < 15000 && !$id('hidLatLon').value) await sleep(250);
     if (!$id('hidLatLon').value) throw new Error('La dirección no se geocodificó (sin coordenadas) para "' + text + '"');
     await sleep(900);   // afterGeocoding: marcar en mapa, ruta, calles
     return { chosen: a.value, warn: warn };
@@ -300,6 +300,9 @@
     var res = { warnings: [] };
     await setSelect('cbEmpresa', 'Distrito', cfg.distrito);
     await setSelect('cbGrupo', 'Grupo', r.grupo);
+    if (r.tipo_servicio && /^SIN INCIDENCIAS?$/.test(norm(r.tipo_servicio)) && !pickOption($id('cbTipoServicio'), r.tipo_servicio) && pickOption($id('cbTipoServicio'), 'RELEVAMIENTO')) {
+      r.tipo_servicio = 'RELEVAMIENTO'; r.detalle_servicio = 'SIN INCIDENCIAS';   // en PUNTO CRONICO, HOJA DE RUTA, etc. "sin incidencias" es RELEVAMIENTO / SIN INCIDENCIAS
+    }
     if (r.tipo_servicio) await setSelect('cbTipoServicio', 'Tipo de servicio', r.tipo_servicio);
     else if ($id('cbTipoServicio').options.length > 1) {
       res.warnings.push('sin tipo de servicio en el JSON: quedó el primero del grupo ("' + $id('cbTipoServicio').selectedOptions[0].text + '")');
@@ -707,7 +710,16 @@
         var idx = indices[i];
         try { sessionStorage.setItem('ub_carga_run', JSON.stringify({ indices: indices, pos: i, t: Date.now() })); } catch (e) { }
         try { await processRow(idx); }
-        catch (e) {
+        catch (e0) {
+          // El geocodificador de Urbetrack falla de a ratos (la misma calle anda y al rato no): se reintenta una vez la fila.
+          var e = e0;
+          if (/geocodific/i.test(e0.message) && !state.stop) {
+            log(idx, 'trabajando', 'la dirección no respondió; reintento en 3 s…');
+            try { await clearPending(); if (!cfg.dryRun) await newForm(); } catch (e4) { }
+            await sleep(3000);
+            try { await processRow(idx); e = null; } catch (e5) { e = e5; }
+          }
+          if (!e) continue;
           log(idx, 'error', e.message);
           // si falló en medio, limpiar para que la fila siguiente arranque de cero
           // (salvo que haya un guardado en curso: ahí no se toca el formulario)
@@ -960,9 +972,10 @@
       try { sessionStorage.removeItem('ub_carga_run'); } catch (e) { }
       return;
     }
-    done[pend.key] = { id: '?', t: Date.now() }; lsSet(LS_DONE, done);
+    var yaAnotada = !!done[pend.key];   // processRow ya la anotó antes de que la página se recargara
+    done[pend.key] = done[pend.key] || { id: '?', t: Date.now() }; lsSet(LS_DONE, done);
     if (state.rows[idx]) { done2[rowKey2(state.rows[idx])] = { id: '?', fila: pend.fila, t: Date.now() }; lsSet(LS_DONE2, done2); }
-    if (state.rows[idx]._estado !== 'guardada') log(idx, 'guardada', 'guardada (la página se recargó; el N° de incidencia no se pudo leer: verificalo en el export de Urbetrack)');
+    if (!yaAnotada && state.rows[idx]._estado !== 'guardada') log(idx, 'guardada', 'guardada (la página se recargó; el N° de incidencia no se pudo leer: verificalo en el export de Urbetrack)');
     try { await clearPending(); } catch (e) { }
     var rest = runRec && runRec.indices ? runRec.indices.slice(runRec.pos + 1) : [];
     try { sessionStorage.removeItem('ub_carga_run'); } catch (e) { }

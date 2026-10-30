@@ -278,7 +278,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-30</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-30b</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -986,6 +986,9 @@
         messages[messages.length-1].lines.push(line);
       }
     }
+    if(messages.some(m => +m.date.split("/")[1] > 12)){
+      messages.forEach(m => { const [a,b,c] = m.date.split("/"); m.date = `${+b}/${+a}/${c}`; });
+    }
     return messages;
   }
 
@@ -1154,6 +1157,11 @@
       }
 
       // secuestro path
+      // "Se dejan secuestros en depósito", "Secuestros en el Camión Op": aviso de traslado, no es una incidencia
+      if(/dep[oó]sito|cami[oó]n\s*op/i.test(caption) && /secuestr|bols[oó]n/i.test(caption) && !/[A-Za-zÀ-ÿ]{3,}\.?\s+(al\s+)?\d{2,5}\b/.test(caption.replace(/cami[oó]n\s*op\S*/ig, ""))){
+        skipped.push({date: msg.date, time: msg.time, file: filename, caption, reason: "traslado de secuestros (no es incidencia)"});
+        continue;
+      }
       if(profile.secuestro.enabled && new RegExp(profile.secuestro.keyword, "i").test(caption)){
         const asMatch = caption.match(AS_RE);
         const acta = asMatch ? "AS"+asMatch[1] : null;
@@ -1165,7 +1173,7 @@
         // primero la línea que tiene calle + número; los encabezados (Punto crónico, Hoja de ruta…) y el nombre del lugar no son la dirección
         const lineasSec = caption.split("\n").map(x=>x.trim()).filter(Boolean)
           .filter(x => !/^(punto\s*cr[oóií](?:nico|tico)|hoja\s*de\s*ruta|evento|partido|reclamo|secuestro)\b[^\d]*$/i.test(x));
-        const conAltura = lineasSec.find(x => /^[A-Za-zÀ-ÿ].*\d/.test(x) && !/^A[SI][\s/]*\d/i.test(x) && !/^art[ií]culos?\b/i.test(x));
+        const conAltura = lineasSec.find(x => /^[A-Za-zÀ-ÿ].*\d/.test(x) && !/^A\s*\/?\s*[SIC][\s/.:]*\d/i.test(x) && !/^S\d{6,}/i.test(x) && !/^art[ií]culos?\b/i.test(x) && !/^(precinto|reclamo|bultos?)\b/i.test(x));
         for(const l of (conAltura ? [conAltura] : caption.split("\n"))){
           const ls = l.trim();
           if(!ls) continue;
@@ -1448,6 +1456,9 @@
     const obs = [], g = CATALOGO_UB.catalogo[r.grupo], dir = String(r.direccion || "").trim();
     if(!dir) obs.push("sin dirección");
     else if((!/\d/.test(dir) || /\s0+$/.test(dir)) && !/\sy\s/i.test(dir)) obs.push("dirección sin altura");
+    else if(/^[-–•]/.test(dir) || /^A\s*\/?\s*[SIC][\s/.:]*\d/i.test(dir) || /^S\d{6,}/i.test(dir) || /\b(oficial|patrulla|lp)\b/i.test(dir)
+            || !/[A-Za-zÀ-ÿ]{3,}/.test(dir.replace(/\b(av|avda|avenida|calle|de|del|la|el)\b\.?/ig, "")))
+      obs.push("dirección dudosa (parece un acta, un número de reclamo o un dato de la patrulla)");
     if(!g) obs.push(r.grupo ? "grupo fuera de catálogo" : "falta grupo");
     else if(!r.tipoServicio) obs.push("falta tipo");
     else if(!g[r.tipoServicio]) obs.push("tipo fuera de catálogo");

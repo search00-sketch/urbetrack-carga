@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.13.0 (script) y conversor 2026-10-30b
+- **Direcciones que fallan de a ratos**: el geocodificador de Urbetrack a veces no responde (ej. Ramos Mejía: 186 guardadas y 47 errores entre el 15 y el 30/10). El panel espera más (15 s) y, si igual falla, reintenta la fila una vez a los 3 s.
+- El registro ya no anota dos veces una fila cuando Urbetrack recarga la página justo después de guardar.
+- PUNTO CRONICO / HOJA DE RUTA con tipo "SIN INCIDENCIAS" (Excel armado a mano o viejo) se carga como RELEVAMIENTO / SIN INCIDENCIAS.
+- Conversor: chats con fechas en formato mes/día (celular en inglés, "10/14/26") se leen bien; antes daban "Fecha de aviso no quedó como se cargó".
+- Conversor: "Se dejan secuestros en depósito", "Secuestros en el Camión Op" y similares ya no se toman como incidencias.
+- Conversor: en secuestros, un acta de comprobación ("Ac 25259") o un número de reclamo ("S01166044/26") no se toman como dirección; y una dirección dudosa (acta, reclamo, "Oficial LP…", "Av. 27") queda en REVISAR con el motivo.
+
 ## Conversor 2026-10-30
 - Mensajes en **un solo renglón** con guiones o "en": "Punto crítico Hospital Rivadavia en Av. Las Heras al 2700 - sin incidencias", "Punto crítico Puente Pacífico … - Av. Santa Fe 4650 - sin incidencias". Toma la parte con calle y número como dirección y el nombre (Hospital Rivadavia, Sanatorio CEMIC…) como punto. Antes quedaban en "sin dirección detectada".
 - "Av. Las Heras al 2700" → "Av. Las Heras 2700".
