@@ -278,7 +278,7 @@
   <header class="top">
     <div class="titling">
       <span class="eyebrow">Higiene Urbana · Soporte GCABA</span>
-      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-10-30b</small></h1>
+      <h1>WhatsApp → Urbetrack <small style="font-size:12px;font-weight:400;opacity:.6">versión 2026-11-03</small></h1>
       <p class="sub">Convertí un export de chat de WhatsApp en una planilla de incidencias lista para verificar direcciones y cargar en Urbetrack.</p>
     </div>
     <div class="steps">
@@ -1141,7 +1141,8 @@
       const captionLines = iosAtt !== null
         ? msg.lines.map(l => l.replace(IOS_ATTACH_RE, "").replace(/[\u200e\u200f]/g,"").trim())
         : msg.lines.filter(l => !ATTACH_RE.test(l)).map(l => l.replace(OMITIDO_RE, "").trim());
-      const caption = captionLines.filter(l=>l.trim()).join("\n").trim();
+      // viñetas al principio del renglón ("-Piedras 412", "• Av. Corrientes 1500", "▪︎ …") no son parte del texto
+      const caption = captionLines.map(l => l.replace(/^[\s\-–—•·▪︎▪◦*>]+/u, "")).filter(l=>l.trim()).join("\n").trim();
 
       const [h, mi] = msg.ampm === null ? msg.time.split(":").map(Number) : to24h(msg.time, msg.ampm || guessAmPm(msg.time));
       const wd = weekdayOf(msg.date);
@@ -1306,7 +1307,8 @@
         const extra = [];
         lns.forEach((l,i)=>{
           if(headRe.test(l) || l === rawAddr || /^sin\s+incid\w*\.?$/i.test(l)) return;
-          if(/^punto/.test(hdrKind) && ai > 0 && i < ai) { punto = (punto ? punto + " " : "") + l; return; }
+          if(/^etapa\b/i.test(l)) return;   // "ETAPA:3" es de la hoja de ruta, no el nombre del punto
+          if(/^punto/.test(hdrKind) && ai > 0 && i < ai) { punto = (punto ? punto + " " : "") + l.replace(/[.\s]+$/, ""); return; }
           extra.push(l);
         });
         if(/^punto/.test(hdrKind) && !punto){

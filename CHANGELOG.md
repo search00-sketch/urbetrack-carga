@@ -1,5 +1,9 @@
 # Cambios
 
+## Conversor 2026-11-03
+- Renglones que empiezan con guion o viñeta ("-Piedras 412 (no se observan incidencias)", "• Av. Corrientes 1500") se toman como dirección. Antes esos mensajes quedaban en "sin dirección detectada" (chat Patrulla 1 TN).
+- "ETAPA:3" arriba del mensaje no se toma como nombre del punto.
+
 ## 0.13.1
 - Direcciones con nombre y apellido: si no la encuentra, el panel prueba como las nombra Urbetrack ("Apellido, Nombre": "Manuel R Trelles 2800" → "Trelles, Manuel R 2800") y sin iniciales sueltas ("Manuel Trelles 2800"), además de "Trelles 2800".
 
